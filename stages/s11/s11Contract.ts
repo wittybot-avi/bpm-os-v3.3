@@ -9,10 +9,12 @@
 export interface S11Context {
   stockReadyCount: number;      // Items available for allocation
   stockReservedCount: number;   // Items allocated to orders
-  totalDispatchedCount: number; // Items left the warehouse today
+  totalDispatchedCount: number; // Items completed delivery
   custodyHandoverPendingCount: number; // Items awaiting physical handover
+  consignmentsInTransitCount: number; // Items currently on the road
   lastMovementAt: string;
   warehouseStatus: 'IDLE' | 'OPERATIONAL' | 'AUDIT_LOCK';
+  dispatchStatus: 'IDLE' | 'READY' | 'DISPATCHED' | 'IN_TRANSIT' | 'DELIVERED';
   provisioningDependency: 'OK' | 'BLOCKED'; // Dependency on S10
 }
 
@@ -25,7 +27,9 @@ export const getMockS11Context = (): S11Context => ({
   stockReservedCount: 60,
   totalDispatchedCount: 125,
   custodyHandoverPendingCount: 12,
+  consignmentsInTransitCount: 5,
   lastMovementAt: '2026-01-16 17:30 IST',
   warehouseStatus: 'OPERATIONAL',
+  dispatchStatus: 'IDLE',
   provisioningDependency: 'OK'
 });

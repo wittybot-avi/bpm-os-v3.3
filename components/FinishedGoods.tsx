@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { UserContext, UserRole } from '../types';
 import { 
   ShieldAlert, 
@@ -18,13 +18,15 @@ import {
   Box,
   Stamp,
   UserCheck,
-  Flag
+  History,
+  Activity
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
-import { getMockS11Context } from '../stages/s11/s11Contract';
+import { getMockS11Context, S11Context } from '../stages/s11/s11Contract';
 import { getS11ActionState, S11ActionId } from '../stages/s11/s11Guards';
 import { DisabledHint } from './DisabledHint';
+import { emitAuditEvent, getAuditEvents, AuditEvent } from '../utils/auditEvents';
 
 // Mock Data Types
 interface InventoryItem {
@@ -94,11 +96,121 @@ export const FinishedGoods: React.FC = () => {
   const { role } = useContext(UserContext);
   const [selectedItem, setSelectedItem] = useState<InventoryItem>(INVENTORY[0]);
 
-  // Read-only S11 Context
-  const s11Context = getMockS11Context();
+  // S11 Context & Event State
+  const [s11Context, setS11Context] = useState<S11Context>(getMockS11Context());
+  const [localEvents, setLocalEvents] = useState<AuditEvent[]>([]);
+  const [isSimulating, setIsSimulating] = useState(false);
+
+  // Load events on mount
+  useEffect(() => {
+    setLocalEvents(getAuditEvents().filter(e => e.stageId === 'S11'));
+  }, []);
 
   // Helper for Guards
   const getAction = (actionId: S11ActionId) => getS11ActionState(role, s11Context, actionId);
+
+  // Action Handlers
+  const handlePrepareDispatch = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS11Context(prev => ({
+        ...prev,
+        dispatchStatus: 'READY',
+        stockReadyCount: Math.max(0, prev.stockReadyCount - 5),
+        stockReservedCount: prev.stockReservedCount + 5
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S11',
+        actionId: 'PREPARE_DISPATCH',
+        actorRole: role,
+        message: 'Dispatch lot prepared; 5 units allocated and reserved'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleHandover = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      setS11Context(prev => ({
+        ...prev,
+        dispatchStatus: 'DISPATCHED',
+        stockReservedCount: Math.max(0, prev.stockReservedCount - 5),
+        custodyHandoverPendingCount: prev.custodyHandoverPendingCount + 1, // Represents 1 lot/shipment
+        lastMovementAt: now
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S11',
+        actionId: 'HANDOVER_TO_LOGISTICS',
+        actorRole: role,
+        message: 'Physical handover to Logistics provider complete'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 800);
+  };
+
+  const handleConfirmTransit = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS11Context(prev => ({
+        ...prev,
+        dispatchStatus: 'IN_TRANSIT',
+        custodyHandoverPendingCount: Math.max(0, prev.custodyHandoverPendingCount - 1),
+        consignmentsInTransitCount: prev.consignmentsInTransitCount + 1
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S11',
+        actionId: 'CONFIRM_IN_TRANSIT',
+        actorRole: role,
+        message: 'Consignment marked as In-Transit (Custody Transferred)'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 800);
+  };
+
+  const handleConfirmDelivery = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS11Context(prev => ({
+        ...prev,
+        dispatchStatus: 'DELIVERED',
+        consignmentsInTransitCount: Math.max(0, prev.consignmentsInTransitCount - 1),
+        totalDispatchedCount: prev.totalDispatchedCount + 5
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S11',
+        actionId: 'CONFIRM_DELIVERY',
+        actorRole: role,
+        message: 'Delivery confirmed at destination'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 1000);
+  };
+
+  const handleCloseCustody = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      // Reset logic for demo purposes to allow starting over, 
+      // but formally this closes the loop.
+      setS11Context(prev => ({
+        ...prev,
+        dispatchStatus: 'IDLE' 
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S11',
+        actionId: 'CLOSE_CUSTODY',
+        actorRole: role,
+        message: 'Custody chain closed successfully. Cycle reset.'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
 
   // Guard States
   const prepareDispatchState = getAction('PREPARE_DISPATCH');
@@ -149,9 +261,9 @@ export const FinishedGoods: React.FC = () => {
             <ClipboardList size={10} />
             <span>Ready: {s11Context.stockReadyCount}</span>
             <span className="text-slate-300">|</span>
-            <span>Reserved: {s11Context.stockReservedCount}</span>
-            <span className="text-slate-300">|</span>
-            <span className="text-blue-600">Disp: {s11Context.totalDispatchedCount}</span>
+            <span className={`font-bold ${s11Context.dispatchStatus !== 'IDLE' ? 'text-blue-600' : 'text-slate-600'}`}>
+                Status: {s11Context.dispatchStatus}
+            </span>
           </div>
         </div>
       </div>
@@ -159,8 +271,27 @@ export const FinishedGoods: React.FC = () => {
       <StageStateBanner stageId="S11" />
       <PreconditionsPanel stageId="S11" />
 
+      {/* Recent Local Activity Panel */}
+      {localEvents.length > 0 && (
+        <div className="bg-slate-50 border border-slate-200 rounded-md p-3 mb-6 animate-in slide-in-from-top-2">
+           <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase mb-2">
+              <History size={14} /> Recent S11 Activity (Session)
+           </div>
+           <div className="space-y-2">
+              {localEvents.slice(0, 3).map(evt => (
+                 <div key={evt.id} className="flex items-center gap-3 text-sm bg-white p-2 rounded border border-slate-100 shadow-sm">
+                    <span className="font-mono text-[10px] text-slate-400">{evt.timestamp}</span>
+                    <span className="font-bold text-slate-700 text-xs px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">{evt.actorRole}</span>
+                    <span className="text-slate-600 flex-1 truncate">{evt.message}</span>
+                    <CheckCircle2 size={14} className="text-green-500" />
+                 </div>
+              ))}
+           </div>
+        </div>
+      )}
+
       {/* Main Grid */}
-      <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
+      <div className={`flex-1 grid grid-cols-12 gap-6 min-h-0 ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>
         
         {/* Left Col: Inventory List */}
         <div className="col-span-5 bg-white rounded-lg shadow-sm border border-industrial-border flex flex-col overflow-hidden">
@@ -311,16 +442,22 @@ export const FinishedGoods: React.FC = () => {
 
             {/* 4. Actions (Updated with S11 Guards) */}
             <section className="pt-4 border-t border-slate-100">
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <Truck size={16} className="text-brand-500" />
-                    Dispatch Lifecycle Operations
-                </h3>
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                        <Truck size={16} className="text-brand-500" />
+                        Dispatch Lifecycle Operations
+                    </h3>
+                    <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500 font-mono">
+                       ACTIVE: {s11Context.dispatchStatus}
+                    </span>
+                </div>
                 
                 <div className="grid grid-cols-2 gap-4 mb-4">
                     {/* Prepare Dispatch */}
                     <div className="flex flex-col">
                         <button 
-                            disabled={!prepareDispatchState.enabled} 
+                            disabled={!prepareDispatchState.enabled}
+                            onClick={handlePrepareDispatch}
                             className="w-full bg-white border border-slate-300 text-slate-700 py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 transition-colors"
                             title={prepareDispatchState.reason}
                         >
@@ -333,7 +470,8 @@ export const FinishedGoods: React.FC = () => {
                     {/* Handover to Logistics */}
                     <div className="flex flex-col">
                         <button 
-                            disabled={!handoverState.enabled} 
+                            disabled={!handoverState.enabled}
+                            onClick={handleHandover}
                             className="w-full bg-white border border-slate-300 text-slate-700 py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 transition-colors"
                             title={handoverState.reason}
                         >
@@ -349,6 +487,7 @@ export const FinishedGoods: React.FC = () => {
                     <div className="flex flex-col">
                         <button 
                             disabled={!confirmTransitState.enabled} 
+                            onClick={handleConfirmTransit}
                             className="w-full bg-blue-50 text-blue-700 border border-blue-200 py-2 rounded-md font-bold text-xs flex flex-col items-center justify-center gap-1 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 transition-colors"
                             title={confirmTransitState.reason}
                         >
@@ -362,6 +501,7 @@ export const FinishedGoods: React.FC = () => {
                     <div className="flex flex-col">
                         <button 
                             disabled={!confirmDeliveryState.enabled} 
+                            onClick={handleConfirmDelivery}
                             className="w-full bg-green-50 text-green-700 border border-green-200 py-2 rounded-md font-bold text-xs flex flex-col items-center justify-center gap-1 hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 transition-colors"
                             title={confirmDeliveryState.reason}
                         >
@@ -374,7 +514,8 @@ export const FinishedGoods: React.FC = () => {
                     {/* Close Custody */}
                     <div className="flex flex-col">
                         <button 
-                            disabled={!closeCustodyState.enabled} 
+                            disabled={!closeCustodyState.enabled}
+                            onClick={handleCloseCustody} 
                             className="w-full bg-slate-100 text-slate-700 border border-slate-200 py-2 rounded-md font-bold text-xs flex flex-col items-center justify-center gap-1 hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 transition-colors"
                             title={closeCustodyState.reason}
                         >

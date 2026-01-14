@@ -25,11 +25,11 @@ export interface ActionState {
  * Determines if a specific action is allowed based on Role and Context.
  * 
  * Rules:
- * - PREPARE_DISPATCH: Stores/Supervisor. Requires OPERATIONAL status.
- * - HANDOVER_TO_LOGISTICS: Stores/Supervisor. Requires Items Ready.
- * - CONFIRM_IN_TRANSIT: Logistics. Requires Dispatched items.
- * - CONFIRM_DELIVERY: Logistics. Requires Dispatched items.
- * - CLOSE_CUSTODY: Management/Director. Final closure.
+ * - PREPARE_DISPATCH: Stores/Supervisor. Requires OPERATIONAL status. IDLE state.
+ * - HANDOVER_TO_LOGISTICS: Stores/Supervisor. Requires READY state.
+ * - CONFIRM_IN_TRANSIT: Logistics. Requires DISPATCHED state.
+ * - CONFIRM_DELIVERY: Logistics. Requires IN_TRANSIT state.
+ * - CLOSE_CUSTODY: Management/Director. Requires DELIVERED state.
  */
 export const getS11ActionState = (role: UserRole, context: S11Context, action: S11ActionId): ActionState => {
   // Global Lock
@@ -45,36 +45,34 @@ export const getS11ActionState = (role: UserRole, context: S11Context, action: S
   // Operational State Check
   const isOperational = context.warehouseStatus === 'OPERATIONAL';
   const hasReadyStock = context.stockReadyCount > 0;
-  const hasDispatchedStock = context.totalDispatchedCount > 0;
 
   switch (action) {
     case 'PREPARE_DISPATCH':
       if (!isStores) return { enabled: false, reason: 'Requires Stores Role' };
       if (!isOperational) return { enabled: false, reason: 'Warehouse Not Operational' };
       if (!hasReadyStock) return { enabled: false, reason: 'No Ready Stock' };
+      if (context.dispatchStatus !== 'IDLE') return { enabled: false, reason: 'Cycle Already Active' };
       return { enabled: true };
 
     case 'HANDOVER_TO_LOGISTICS':
       if (!isStores) return { enabled: false, reason: 'Requires Stores Role' };
       if (!isOperational) return { enabled: false, reason: 'Warehouse Not Operational' };
-      // Simulate checking if we have items prepared (using Reserved count as proxy for prepared)
-      if (context.stockReservedCount === 0) return { enabled: false, reason: 'No Reserved Items' };
+      if (context.dispatchStatus !== 'READY') return { enabled: false, reason: 'Shipment Not Prepared' };
       return { enabled: true };
 
     case 'CONFIRM_IN_TRANSIT':
       if (!isLogistics) return { enabled: false, reason: 'Requires Logistics Role' };
-      if (context.custodyHandoverPendingCount === 0) return { enabled: false, reason: 'No Handovers Pending' };
+      if (context.dispatchStatus !== 'DISPATCHED') return { enabled: false, reason: 'Handover Pending' };
       return { enabled: true };
 
     case 'CONFIRM_DELIVERY':
       if (!isLogistics) return { enabled: false, reason: 'Requires Logistics Role' };
-      if (!hasDispatchedStock) return { enabled: false, reason: 'No Active Shipments' };
+      if (context.dispatchStatus !== 'IN_TRANSIT') return { enabled: false, reason: 'Not In Transit' };
       return { enabled: true };
 
     case 'CLOSE_CUSTODY':
       if (!isManagement) return { enabled: false, reason: 'Requires Plant Director' };
-      // Can only close if we have successful deliveries (proxy check)
-      if (!hasDispatchedStock) return { enabled: false, reason: 'Nothing Delivered' };
+      if (context.dispatchStatus !== 'DELIVERED') return { enabled: false, reason: 'Delivery Pending' };
       return { enabled: true };
 
     default:
