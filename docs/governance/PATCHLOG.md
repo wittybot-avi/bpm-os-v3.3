@@ -101,3 +101,4 @@ TEMPLATE:
 | **V33-OPS-FP-11** | Runbook Gate Semantics | 2026-01-16 01:15 (IST) | Standardized Runbook gating UX (BLOCKED / reason / action) for missing context. | Yes |
 | **V33-OPS-FP-12** | Stage Operational State Banner | 2026-01-16 01:30 (IST) | Added read-only Stage Operational State banner across S0–S17. | No |
 | **V33-OPS-FP-13** | Stage Preconditions Panel | 2026-01-16 01:45 (IST) | Added read-only Preconditions panel across S0–S17 for plant-like operational clarity. | No |
+| **V33-OPS-FP-14** | Disabled Action Explanations | 2026-01-16 02:00 (IST) | Added consistent 'DisabledHint' visual indicators for blocked/demo actions. | No |

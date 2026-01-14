@@ -9,7 +9,7 @@ import {
   AlertTriangle, 
   XCircle, 
   Box, 
-  FileText,
+  FileText, 
   Stamp,
   ClipboardList,
   ShieldCheck,
@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
+import { DisabledHint } from './DisabledHint';
 
 // Mock Data Types
 interface ReviewPack {
@@ -245,17 +246,20 @@ export const PackReview: React.FC = () => {
                     Final Disposition Decision
                  </h3>
                 <div className="flex gap-4">
-                    <button 
-                        disabled={isReadOnly || true} 
-                        className="flex-1 bg-green-600 text-white py-4 rounded-lg font-bold text-base flex flex-col items-center justify-center gap-1 opacity-50 cursor-not-allowed shadow-sm hover:bg-green-700"
-                        title="Demo Mode: Backend locked"
-                    >
-                        <div className="flex items-center gap-2">
-                            <CheckCircle size={20} />
-                            <span>APPROVE PACK</span>
-                        </div>
-                        <span className="text-[10px] font-normal opacity-80">Release to Finished Goods</span>
-                    </button>
+                    <div className="flex-1 flex flex-col">
+                        <button 
+                            disabled={isReadOnly || true} 
+                            className="flex-1 bg-green-600 text-white py-4 rounded-lg font-bold text-base flex flex-col items-center justify-center gap-1 opacity-50 cursor-not-allowed shadow-sm hover:bg-green-700"
+                            title="Demo Mode: Backend locked"
+                        >
+                            <div className="flex items-center gap-2">
+                                <CheckCircle size={20} />
+                                <span>APPROVE PACK</span>
+                            </div>
+                            <span className="text-[10px] font-normal opacity-80">Release to Finished Goods</span>
+                        </button>
+                        <DisabledHint reason="Missing Final Wgt" nextActionHint="Verify Weighing" className="mx-auto" />
+                    </div>
                     
                     <button 
                         disabled={isReadOnly || true} 

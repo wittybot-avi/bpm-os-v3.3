@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
+import { DisabledHint } from './DisabledHint';
 
 // Mock Data Types
 interface Shipment {
@@ -222,7 +223,7 @@ export const InboundReceipt: React.FC = () => {
                       {selectedShipment.receivedQty.toLocaleString()} <span className="text-xs font-normal text-slate-500">units</span>
                     </div>
                  </div>
-                 <div className="flex items-end">
+                 <div className="flex flex-col items-end justify-end">
                     <button 
                       disabled 
                       className="w-full bg-white border border-slate-300 text-slate-400 text-sm font-medium py-2 rounded shadow-sm opacity-60 cursor-not-allowed"
@@ -230,6 +231,7 @@ export const InboundReceipt: React.FC = () => {
                     >
                       Update Count
                     </button>
+                    <DisabledHint reason="Demo Mode" nextActionHint="Backend Integration Required" />
                  </div>
                </div>
             </section>
@@ -242,14 +244,17 @@ export const InboundReceipt: React.FC = () => {
                     Serialization
                   </h3>
                   {!isReadOnly && (
-                    <button 
-                      disabled
-                      className="text-xs bg-brand-600 text-white px-3 py-1.5 rounded opacity-50 cursor-not-allowed flex items-center gap-1"
-                      title="Demo Mode: Backend generation disabled"
-                    >
-                      <span>Generate Serials</span>
-                      <ArrowRight size={12} />
-                    </button>
+                    <div className="flex flex-col items-end">
+                      <button 
+                        disabled
+                        className="text-xs bg-brand-600 text-white px-3 py-1.5 rounded opacity-50 cursor-not-allowed flex items-center gap-1"
+                        title="Demo Mode: Backend generation disabled"
+                      >
+                        <span>Generate Serials</span>
+                        <ArrowRight size={12} />
+                      </button>
+                      <DisabledHint reason="Receipt Pending" nextActionHint="Verify Quantity" />
+                    </div>
                   )}
                </div>
                

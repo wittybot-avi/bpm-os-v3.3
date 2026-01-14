@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
+import { DisabledHint } from './DisabledHint';
 
 // Mock Data Types
 interface SKU {
@@ -117,13 +118,16 @@ export const SKUBlueprint: React.FC = () => {
            </h1>
            <p className="text-slate-500 text-sm mt-1">Define battery chemistry, electrical specs, and regulatory compliance.</p>
         </div>
-        <button 
-          className="bg-brand-600 text-white px-4 py-2 rounded-md font-medium text-sm opacity-50 cursor-not-allowed flex items-center gap-2"
-          disabled
-          title="Demo Mode: Backend creation disabled"
-        >
-          <span>+ Create New SKU</span>
-        </button>
+        <div className="flex flex-col items-end">
+          <button 
+            className="bg-brand-600 text-white px-4 py-2 rounded-md font-medium text-sm opacity-50 cursor-not-allowed flex items-center gap-2"
+            disabled
+            title="Demo Mode: Backend creation disabled"
+          >
+            <span>+ Create New SKU</span>
+          </button>
+          <DisabledHint reason="Demo Mode Active" nextActionHint="Backend Integration Required" />
+        </div>
       </div>
 
       <StageStateBanner stageId="S1" />
@@ -190,9 +194,12 @@ export const SKUBlueprint: React.FC = () => {
               </div>
               <p className="text-sm text-slate-500">Product Revision A.2 • Last Modified: 2025-12-10</p>
             </div>
-            <button className="text-brand-600 text-sm font-medium hover:underline disabled:opacity-50 disabled:no-underline" disabled>
-              Edit Blueprint
-            </button>
+            <div className="flex flex-col items-end">
+              <button className="text-brand-600 text-sm font-medium hover:underline disabled:opacity-50 disabled:no-underline" disabled>
+                Edit Blueprint
+              </button>
+              <DisabledHint reason="Approved State" nextActionHint="Create Revision" />
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-8">

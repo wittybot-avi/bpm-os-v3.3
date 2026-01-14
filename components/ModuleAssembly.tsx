@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
+import { DisabledHint } from './DisabledHint';
 
 // Mock Data Types
 interface ActiveBatch {
@@ -175,25 +176,30 @@ export const ModuleAssembly: React.FC = () => {
               </div>
               
               <div className="flex gap-6 w-full max-w-lg">
-                 <button 
-                    disabled={isReadOnly}
-                    className="flex-1 h-24 bg-green-600 hover:bg-green-700 active:scale-95 transition-all text-white rounded-xl shadow-lg flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group"
-                    title={isReadOnly ? "Read Only" : "Demo Mode"}
-                 >
-                    <CheckSquare size={32} className="group-hover:scale-110 transition-transform" />
-                    <span className="font-bold text-lg">ASSEMBLY OK</span>
-                    <span className="text-[10px] opacity-75">Increment Counter (Disabled)</span>
-                 </button>
+                 <div className="flex-1 flex flex-col items-center">
+                    <button 
+                        disabled={isReadOnly}
+                        className="w-full h-24 bg-green-600 hover:bg-green-700 active:scale-95 transition-all text-white rounded-xl shadow-lg flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group"
+                        title={isReadOnly ? "Read Only" : "Demo Mode"}
+                    >
+                        <CheckSquare size={32} className="group-hover:scale-110 transition-transform" />
+                        <span className="font-bold text-lg">ASSEMBLY OK</span>
+                        <span className="text-[10px] opacity-75">Increment Counter (Disabled)</span>
+                    </button>
+                    <DisabledHint reason="Calibration Expired" nextActionHint="Check Torque Tool" className="mt-2 text-center" />
+                 </div>
                  
-                 <button 
-                    disabled={isReadOnly}
-                    className="flex-1 h-24 bg-amber-500 hover:bg-amber-600 active:scale-95 transition-all text-white rounded-xl shadow-lg flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group"
-                    title={isReadOnly ? "Read Only" : "Demo Mode"}
-                 >
-                    <RotateCcw size={32} className="group-hover:rotate-[-45deg] transition-transform" />
-                    <span className="font-bold text-lg">REWORK</span>
-                    <span className="text-[10px] opacity-75">Flag for Repair (Disabled)</span>
-                 </button>
+                 <div className="flex-1 flex flex-col items-center">
+                    <button 
+                        disabled={isReadOnly}
+                        className="w-full h-24 bg-amber-500 hover:bg-amber-600 active:scale-95 transition-all text-white rounded-xl shadow-lg flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group"
+                        title={isReadOnly ? "Read Only" : "Demo Mode"}
+                    >
+                        <RotateCcw size={32} className="group-hover:rotate-[-45deg] transition-transform" />
+                        <span className="font-bold text-lg">REWORK</span>
+                        <span className="text-[10px] opacity-75">Flag for Repair (Disabled)</span>
+                    </button>
+                 </div>
               </div>
 
               <button 
