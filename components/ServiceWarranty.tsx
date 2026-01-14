@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { UserContext, UserRole } from '../types';
 import { 
   ShieldAlert, 
@@ -23,8 +23,9 @@ import {
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
 import { DisabledHint } from './DisabledHint';
-import { getMockS12Context } from '../stages/s12/s12Contract';
+import { getMockS12Context, S12Context } from '../stages/s12/s12Contract';
 import { getS12ActionState, S12ActionId } from '../stages/s12/s12Guards';
+import { emitAuditEvent, getAuditEvents, AuditEvent } from '../utils/auditEvents';
 
 // Mock Data Types
 interface DeployedPack {
@@ -100,11 +101,96 @@ export const ServiceWarranty: React.FC = () => {
   const { role } = useContext(UserContext);
   const [selectedPack, setSelectedPack] = useState<DeployedPack>(DEPLOYED_FLEET[0]);
 
-  // Read-Only S12 Context
-  const s12Context = getMockS12Context();
+  // Local State for S12 Context Simulation
+  const [s12Context, setS12Context] = useState<S12Context>(getMockS12Context());
+  const [localEvents, setLocalEvents] = useState<AuditEvent[]>([]);
+  const [isSimulating, setIsSimulating] = useState(false);
+
+  // Load events on mount
+  useEffect(() => {
+    setLocalEvents(getAuditEvents().filter(e => e.stageId === 'S12'));
+  }, []);
 
   // Helper for Guards
   const getAction = (actionId: S12ActionId) => getS12ActionState(role, s12Context, actionId);
+
+  // Action Handlers
+  const handleInitiateClaim = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS12Context(prev => ({
+        ...prev,
+        lifecycleStatus: 'CLAIM',
+        activeClaimsCount: prev.activeClaimsCount + 1
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S12',
+        actionId: 'INITIATE_WARRANTY_CLAIM',
+        actorRole: role,
+        message: 'Warranty claim initiated. Lifecycle status set to CLAIM.'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleApproveClaim = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS12Context(prev => ({
+        ...prev,
+        lifecycleStatus: 'ACTIVE',
+        activeClaimsCount: Math.max(0, prev.activeClaimsCount - 1)
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S12',
+        actionId: 'APPROVE_WARRANTY_CLAIM',
+        actorRole: role,
+        message: 'Warranty claim approved. Lifecycle status returned to ACTIVE.'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 800);
+  };
+
+  const handleRejectClaim = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS12Context(prev => ({
+        ...prev,
+        lifecycleStatus: 'ACTIVE',
+        activeClaimsCount: Math.max(0, prev.activeClaimsCount - 1)
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S12',
+        actionId: 'REJECT_WARRANTY_CLAIM',
+        actorRole: role,
+        message: 'Warranty claim rejected/voided. Lifecycle status returned to ACTIVE.'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 800);
+  };
+
+  const handleCloseWarranty = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS12Context(prev => ({
+        ...prev,
+        lifecycleStatus: 'EXPIRED',
+        packsUnderWarrantyCount: Math.max(0, prev.packsUnderWarrantyCount - 1),
+        packsOutOfWarrantyCount: prev.packsOutOfWarrantyCount + 1
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S12',
+        actionId: 'CLOSE_WARRANTY',
+        actorRole: role,
+        message: 'Warranty term closed/expired. Asset moved to out-of-warranty.'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 800);
+  };
 
   // Guard States
   const initiateClaimState = getAction('INITIATE_WARRANTY_CLAIM');
@@ -175,8 +261,27 @@ export const ServiceWarranty: React.FC = () => {
       <StageStateBanner stageId="S15" />
       <PreconditionsPanel stageId="S15" />
 
+      {/* Recent Local Activity Panel */}
+      {localEvents.length > 0 && (
+        <div className="bg-slate-50 border border-slate-200 rounded-md p-3 mb-6 animate-in slide-in-from-top-2">
+           <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase mb-2">
+              <History size={14} /> Recent S12 Activity (Session)
+           </div>
+           <div className="space-y-2">
+              {localEvents.slice(0, 3).map(evt => (
+                 <div key={evt.id} className="flex items-center gap-3 text-sm bg-white p-2 rounded border border-slate-100 shadow-sm">
+                    <span className="font-mono text-[10px] text-slate-400">{evt.timestamp}</span>
+                    <span className="font-bold text-slate-700 text-xs px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">{evt.actorRole}</span>
+                    <span className="text-slate-600 flex-1 truncate">{evt.message}</span>
+                    <CheckCircle2 size={14} className="text-green-500" />
+                 </div>
+              ))}
+           </div>
+        </div>
+      )}
+
       {/* Main Grid */}
-      <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
+      <div className={`flex-1 grid grid-cols-12 gap-6 min-h-0 ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>
         
         {/* Left Col: Fleet List */}
         <div className="col-span-4 bg-white rounded-lg shadow-sm border border-industrial-border flex flex-col overflow-hidden">
@@ -331,7 +436,8 @@ export const ServiceWarranty: React.FC = () => {
                     <div className="flex-1 flex flex-col">
                         <button 
                             disabled={!initiateClaimState.enabled}
-                            className="w-full bg-white border border-slate-300 text-slate-700 py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                            onClick={handleInitiateClaim}
+                            className="w-full bg-white border border-slate-300 text-slate-700 py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 transition-colors"
                             title={initiateClaimState.reason}
                         >
                             <FileWarning size={16} />
@@ -344,7 +450,8 @@ export const ServiceWarranty: React.FC = () => {
                     <div className="flex-1 flex flex-col">
                         <button 
                             disabled={!rejectClaimState.enabled}
-                            className="w-full bg-white border border-slate-300 text-slate-700 py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                            onClick={handleRejectClaim}
+                            className="w-full bg-white border border-slate-300 text-slate-700 py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 transition-colors"
                             title={rejectClaimState.reason}
                         >
                             <XCircle size={16} />
@@ -357,7 +464,8 @@ export const ServiceWarranty: React.FC = () => {
                     <div className="flex-1 flex flex-col">
                         <button 
                             disabled={!approveClaimState.enabled}
-                            className="w-full bg-brand-600 text-white py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 shadow-sm hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                            onClick={handleApproveClaim}
+                            className="w-full bg-brand-600 text-white py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 shadow-sm hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 transition-colors"
                             title={approveClaimState.reason}
                         >
                             <CheckCircle2 size={16} />
@@ -370,7 +478,8 @@ export const ServiceWarranty: React.FC = () => {
                     <div className="flex-1 flex flex-col">
                         <button 
                             disabled={!closeWarrantyState.enabled}
-                            className="w-full bg-slate-800 text-white py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 shadow-sm hover:bg-slate-900 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                            onClick={handleCloseWarranty}
+                            className="w-full bg-slate-800 text-white py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 shadow-sm hover:bg-slate-900 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 transition-colors"
                             title={closeWarrantyState.reason}
                         >
                             <Archive size={16} />
