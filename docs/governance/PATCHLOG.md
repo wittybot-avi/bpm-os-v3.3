@@ -96,3 +96,4 @@ TEMPLATE:
 | **V33-CORE-FP-06** | Fix docs markdown imports | 2026-01-16 00:00 (IST) | Removed @ alias for markdown; enforced relative raw imports for stability. | No |
 | **V33-DOC-FP-07** | Docs Standardization | 2026-01-16 00:15 (IST) | Consolidated governance docs to /docs/governance. Fixed build imports. | No |
 | **V33-DOC-FP-08** | Documentation Loader Stabilization | 2026-01-16 00:30 (IST) | Switched to fetch() for docs to fix build errors. Reduced artifacts.ts size. | No |
+| **V33-DOC-HO-09** | Governance Docs Single Source | 2026-01-16 00:45 (IST) | Removed root duplicates; /docs/governance is single source. | No |
