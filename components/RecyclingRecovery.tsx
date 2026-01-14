@@ -14,9 +14,17 @@ import {
   AlertTriangle,
   ArrowRight,
   ShieldCheck,
-  ClipboardList
+  ClipboardList,
+  Wrench,
+  Truck,
+  CheckSquare,
+  Archive,
+  FilePlus,
+  XCircle
 } from 'lucide-react';
-import { getMockS13Context } from '../stages/s13/s13Contract';
+import { getMockS13Context, S13Context } from '../stages/s13/s13Contract';
+import { getS13ActionState, S13ActionId } from '../stages/s13/s13Guards';
+import { DisabledHint } from './DisabledHint';
 
 // Mock Data Types
 interface EolUnit {
@@ -64,8 +72,11 @@ export const RecyclingRecovery: React.FC = () => {
   const { role } = useContext(UserContext);
   const [selectedUnit, setSelectedUnit] = useState<EolUnit>(INTAKE_QUEUE[0]);
 
-  // Read-Only S13 Context
-  const s13Context = getMockS13Context();
+  // S13 Context State (Converted to state for future simulation)
+  const [s13Context, setS13Context] = useState<S13Context>(getMockS13Context());
+
+  // Helper for Guards
+  const getAction = (actionId: S13ActionId) => getS13ActionState(role, s13Context, actionId);
 
   // RBAC Access Check
   const hasAccess = 
@@ -74,11 +85,14 @@ export const RecyclingRecovery: React.FC = () => {
     role === UserRole.SERVICE || 
     role === UserRole.MANAGEMENT;
 
-  // Auditor is strictly read-only
   const isAuditor = role === UserRole.MANAGEMENT;
-  // Service Engineer is read-only in this context as per previous logic (but can see buttons disabled usually)
-  // For this patch, we enforce hidden buttons for Auditor specifically.
-  const isReadOnly = isAuditor || role === UserRole.SERVICE;
+  
+  // Guard States
+  const openReqState = getAction('OPEN_SERVICE_REQUEST');
+  const closeReqState = getAction('CLOSE_SERVICE_REQUEST');
+  const initReturnState = getAction('INITIATE_RETURN');
+  const confirmReturnState = getAction('CONFIRM_RETURN_RECEIPT');
+  const closeCaseState = getAction('CLOSE_SERVICE_CASE');
 
   if (!hasAccess) {
     return (
@@ -109,9 +123,9 @@ export const RecyclingRecovery: React.FC = () => {
            </div>
            <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
              <Recycle className="text-brand-600" size={24} />
-             Recycling & Recovery (S16)
+             Service & Returns (S13)
            </h1>
-           <p className="text-slate-500 text-sm mt-1">End-of-Life (EOL) management, sorting, and material recovery processing (Track -> Trace Bridge).</p>
+           <p className="text-slate-500 text-sm mt-1">End-of-Life (EOL) management, returns intake, and material recovery.</p>
         </div>
         <div className="flex flex-col items-end gap-1">
           <div className="flex items-center gap-2 bg-green-50 text-green-700 px-3 py-1 rounded border border-green-200 text-xs font-bold">
@@ -125,10 +139,82 @@ export const RecyclingRecovery: React.FC = () => {
             <span>Returns: {s13Context.returnsInitiatedCount}</span>
             <span className="text-slate-300">|</span>
             <span className={`font-bold ${s13Context.serviceStatus === 'SERVICE_OPEN' ? 'text-blue-600' : 'text-slate-600'}`}>
-              S13: {s13Context.serviceStatus}
+              Status: {s13Context.serviceStatus}
             </span>
           </div>
         </div>
+      </div>
+
+      {/* Service & Returns Operations Toolbar */}
+      <div className="bg-white p-4 rounded-lg shadow-sm border border-industrial-border flex flex-col md:flex-row items-center gap-4 justify-between">
+         <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className="p-2 bg-blue-50 text-blue-700 rounded border border-blue-100">
+               <RotateCcw size={20} />
+            </div>
+            <div>
+               <h3 className="font-bold text-slate-800 text-sm">Service Operations</h3>
+               <p className="text-xs text-slate-500">Lifecycle State Control</p>
+            </div>
+         </div>
+
+         <div className="flex items-center gap-2 w-full md:w-auto">
+            {/* Open Request */}
+            <div className="flex flex-col items-center">
+              <button 
+                disabled={!openReqState.enabled}
+                title={openReqState.reason}
+                className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white border border-blue-700 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 text-xs font-bold transition-colors shadow-sm"
+              >
+                <FilePlus size={14} /> Open Request
+              </button>
+            </div>
+
+            {/* Initiate Return */}
+            <div className="flex flex-col items-center">
+              <button 
+                disabled={!initReturnState.enabled}
+                title={initReturnState.reason}
+                className="flex items-center gap-2 px-3 py-2 bg-white text-slate-700 border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:text-slate-400 text-xs font-bold transition-colors"
+              >
+                <Truck size={14} /> RMA Init
+              </button>
+            </div>
+
+            {/* Confirm Receipt */}
+            <div className="flex flex-col items-center">
+              <button 
+                disabled={!confirmReturnState.enabled}
+                title={confirmReturnState.reason}
+                className="flex items-center gap-2 px-3 py-2 bg-purple-50 text-purple-700 border border-purple-200 rounded hover:bg-purple-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 text-xs font-bold transition-colors"
+              >
+                <CheckSquare size={14} /> Confirm Receipt
+              </button>
+            </div>
+
+            <div className="w-px h-6 bg-slate-300 mx-2"></div>
+
+            {/* Close Request */}
+            <div className="flex flex-col items-center">
+              <button 
+                disabled={!closeReqState.enabled}
+                title={closeReqState.reason}
+                className="flex items-center gap-2 px-3 py-2 bg-white text-slate-700 border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:text-slate-400 text-xs font-bold transition-colors"
+              >
+                <XCircle size={14} /> Close Req
+              </button>
+            </div>
+
+            {/* Archive Case */}
+            <div className="flex flex-col items-center">
+              <button 
+                disabled={!closeCaseState.enabled}
+                title={closeCaseState.reason}
+                className="flex items-center gap-2 px-3 py-2 bg-slate-800 text-white border border-slate-900 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:border-slate-300 text-xs font-bold transition-colors shadow-sm"
+              >
+                <Archive size={14} /> Archive
+              </button>
+            </div>
+         </div>
       </div>
 
       {/* Main Grid */}
@@ -149,7 +235,7 @@ export const RecyclingRecovery: React.FC = () => {
                   type="text" 
                   placeholder="Scan Return ID..." 
                   className="w-full text-sm border border-slate-300 rounded px-3 py-2 pl-9 focus:outline-none focus:border-brand-500"
-                  disabled={isReadOnly}
+                  disabled={isAuditor}
                 />
                 <Search size={14} className="absolute left-3 top-3 text-slate-400" />
              </div>
