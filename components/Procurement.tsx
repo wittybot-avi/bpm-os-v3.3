@@ -10,11 +10,17 @@ import {
   Building2,
   AlertCircle,
   CheckCircle2,
-  Database
+  Database,
+  Send,
+  ThumbsUp,
+  Archive,
+  Plus
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
+import { DisabledHint } from './DisabledHint';
 import { getMockS2Context } from '../stages/s2/s2Contract';
+import { getS2ActionState, S2ActionId } from '../stages/s2/s2Guards';
 
 // Mock Data Types
 interface ApprovedSKU {
@@ -64,8 +70,16 @@ export const Procurement: React.FC = () => {
   const { role } = useContext(UserContext);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier>(SUPPLIERS[0]);
 
-  // Load S2 Context (Read-Only)
+  // Load S2 Context (Read-Only Mock)
   const s2Context = getMockS2Context();
+
+  // Guard Logic
+  const getAction = (actionId: S2ActionId) => getS2ActionState(role, s2Context, actionId);
+
+  const createPoState = getAction('CREATE_PO');
+  const submitPoState = getAction('SUBMIT_PO_FOR_APPROVAL');
+  const approvePoState = getAction('APPROVE_PO');
+  const issuePoState = getAction('ISSUE_PO_TO_VENDOR');
 
   // RBAC Access Check
   const hasAccess = 
@@ -84,7 +98,7 @@ export const Procurement: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 h-full flex flex-col animate-in fade-in duration-300">
+    <div className="space-y-6 h-full flex flex-col animate-in fade-in duration-300 pb-12">
       {/* Standard Header */}
       <div className="flex items-center justify-between shrink-0 border-b border-slate-200 pb-4">
         <div>
@@ -98,37 +112,87 @@ export const Procurement: React.FC = () => {
            <p className="text-slate-500 text-sm mt-1">Manage supplier qualifications, commercial terms, and procurement orders.</p>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <div className="flex gap-3">
+          <div className="flex gap-2">
             <button 
-              className="bg-white border border-slate-300 text-slate-400 px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 cursor-not-allowed"
-              disabled
-              title="Demo Mode: Backend not connected"
+              className="bg-brand-600 text-white px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400"
+              disabled={!createPoState.enabled}
+              title={createPoState.reason}
             >
-              <FileText size={16} />
-              <span>Create RFQ</span>
-            </button>
-            <button 
-              className="bg-brand-600 text-white px-4 py-2 rounded-md font-medium text-sm opacity-50 cursor-not-allowed flex items-center gap-2"
-              disabled
-              title="Demo Mode: Backend not connected"
-            >
-              <CreditCard size={16} />
-              <span>Release PO</span>
+              <Plus size={16} />
+              <span>Create PO</span>
             </button>
           </div>
+          {!createPoState.enabled && (
+             <DisabledHint reason={createPoState.reason || 'Blocked'} className="mt-1" />
+          )}
+          
           <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2 mt-1">
             <Database size={10} /> 
             <span>Active POs: {s2Context.activePoCount}</span>
             <span className="text-slate-300">|</span>
             <span>Pending: {s2Context.pendingApprovalsCount}</span>
             <span className="text-slate-300">|</span>
-            <span className="font-bold text-blue-600">{s2Context.procurementStatus}</span>
+            <span className={`font-bold ${s2Context.procurementStatus === 'APPROVED' ? 'text-green-600' : 'text-blue-600'}`}>
+              {s2Context.procurementStatus}
+            </span>
           </div>
         </div>
       </div>
 
       <StageStateBanner stageId="S2" />
       <PreconditionsPanel stageId="S2" />
+
+      {/* Procurement Lifecycle Toolbar */}
+      <div className="bg-white p-4 rounded-lg shadow-sm border border-industrial-border flex flex-col md:flex-row items-center gap-4 justify-between">
+         <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className="p-2 bg-blue-50 text-blue-700 rounded border border-blue-100">
+               <FileText size={20} />
+            </div>
+            <div>
+               <h3 className="font-bold text-slate-800 text-sm">Active Order Cycle</h3>
+               <p className="text-xs text-slate-500">Status: {s2Context.procurementStatus}</p>
+            </div>
+         </div>
+
+         <div className="flex items-center gap-2 w-full md:w-auto">
+            {/* Submit */}
+            <div className="flex flex-col items-center">
+              <button 
+                disabled={!submitPoState.enabled}
+                title={submitPoState.reason}
+                className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-700 border border-slate-200 rounded hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 text-xs font-bold transition-colors"
+              >
+                <Send size={14} /> Submit
+              </button>
+            </div>
+
+            <div className="w-4 h-px bg-slate-300"></div>
+
+            {/* Approve */}
+            <div className="flex flex-col items-center">
+              <button 
+                disabled={!approvePoState.enabled}
+                title={approvePoState.reason}
+                className="flex items-center gap-2 px-3 py-2 bg-purple-50 text-purple-700 border border-purple-100 rounded hover:bg-purple-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 text-xs font-bold transition-colors"
+              >
+                <ThumbsUp size={14} /> Approve
+              </button>
+            </div>
+
+            <div className="w-4 h-px bg-slate-300"></div>
+
+            {/* Issue */}
+            <div className="flex flex-col items-center">
+              <button 
+                disabled={!issuePoState.enabled}
+                title={issuePoState.reason}
+                className="flex items-center gap-2 px-3 py-2 bg-green-50 text-green-700 border border-green-100 rounded hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 text-xs font-bold transition-colors"
+              >
+                <CreditCard size={14} /> Issue PO
+              </button>
+            </div>
+         </div>
+      </div>
 
       {/* Main Grid */}
       <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
