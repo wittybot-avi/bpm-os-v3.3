@@ -24,7 +24,7 @@ import {
   Stamp,
   LifeBuoy
 } from 'lucide-react';
-import { UserContext, UserRole } from '../types';
+import { UserContext, UserRole, APP_VERSION } from '../types';
 
 interface RunbookProps {
   id: string;
@@ -479,7 +479,7 @@ export const ControlTower: React.FC<ControlTowerProps> = ({ onNavigate, onViewEx
       </div>
 
       <div className="text-center text-xs text-slate-400">
-         Frontend Demo • Operations Control Layer • v3.1-EXT
+         Frontend Demo • Operations Control Layer • {APP_VERSION}
       </div>
 
     </div>

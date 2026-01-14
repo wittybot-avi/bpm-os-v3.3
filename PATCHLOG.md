@@ -1,5 +1,7 @@
 # BPM-OS Frontend PATCHLOG
 
+## V3.1-EXT Archive (Frozen)
+
 | Patch ID | Patch Type | Intent | Status | Notes | Date |
 |:---|:---|:---|:---|:---|:---|
 | **BP-000** | Bridge Patch | Establish Clean V3.1 Frontend Baseline | **STABLE** | Initial app shell, RBAC stubs, Industrial UI Theme. | 2025-05-18 |
@@ -74,5 +76,19 @@
 | **EXT-HO-093** | Handover Patch | Integration Hooks Map | **STABLE** | Defined UI plug points and integration constraints for backend teams. | 2026-01-15 21:00 (IST) |
 | **EXT-HO-094** | Handover Patch | Consistency & Validation Pass | **STABLE** | Aligned Glossary and Contract enums with Frontend Implementation. | 2026-01-15 22:00 (IST) |
 | **EXT-HO-095** | Handover Patch | Final Design Freeze & Handover Declaration | **STABLE** | Formally declared Design Freeze and locked all handover artifacts. | 2026-01-15 22:30 (IST) |
-| **V33-CORE-BP-00** | Baseline Patch | V3.3 Baseline Lock | **STABLE** | V3.3 baseline lock, HUD branch tag, do-not-break manifest. No behavior change. | 2026-01-15 22:45 (IST) |
-| **V33-CORE-BP-01** | Governance Patch | Single Source of Truth | **STABLE** | Consolidated version constants to appConfig.ts. HUD reads dynamic branch ID. No behavior change. | 2026-01-15 23:00 (IST) |
+
+## V3.3 Frontend Patch Log
+
+<!--
+TEMPLATE:
+| Patch ID | Title | Date (IST) | Summary | Behavior Change |
+|:---|:---|:---|:---|:---|
+| **ID** | Title | YYYY-MM-DD HH:MM (IST) | Description | Yes/No |
+-->
+
+| Patch ID | Title | Date (IST) | Summary | Behavior Change |
+|:---|:---|:---|:---|:---|
+| **V33-CORE-BP-00** | V3.3 Baseline Lock | 2026-01-15 22:45 (IST) | V3.3 baseline lock, HUD branch tag, do-not-break manifest. | No |
+| **V33-CORE-BP-01** | Single Source of Truth | 2026-01-15 23:00 (IST) | Consolidated version constants to appConfig.ts. HUD reads dynamic branch ID. | No |
+| **V33-CORE-HO-02** | Patchlog Discipline | 2026-01-15 23:15 (IST) | Documentation-only; no runtime or UI behavior change. | No |
+| **V33-CORE-FP-04** | Build/Patch Number Discipline | 2026-01-15 23:30 (IST) | Unified footer and HUD patch versions via metadata SSoT. | No |
