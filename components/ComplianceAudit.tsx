@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { UserContext, UserRole } from '../types';
+import { UserContext, UserRole, NavView } from '../types';
 import { 
   ShieldAlert, 
   FileCheck, 
@@ -20,7 +20,9 @@ import {
   Search,
   Wrench,
   Archive,
-  Play
+  Play,
+  ArrowRight,
+  Radar
 } from 'lucide-react';
 import { getMockS14Context, S14Context } from '../stages/s14/s14Contract';
 import { getS14ActionState, S14ActionId } from '../stages/s14/s14Guards';
@@ -49,7 +51,11 @@ const AUDIT_TRAIL = [
   { stage: 'S5: Module', event: 'Cell Scan', timestamp: '2026-01-10 16:20', actor: 'Operator B', status: 'Logged' }
 ];
 
-export const ComplianceAudit: React.FC = () => {
+interface ComplianceAuditProps {
+  onNavigate?: (view: NavView) => void;
+}
+
+export const ComplianceAudit: React.FC<ComplianceAuditProps> = ({ onNavigate }) => {
   const { role } = useContext(UserContext);
   
   // S14 Context State
@@ -164,12 +170,34 @@ export const ComplianceAudit: React.FC = () => {
     }, 600);
   };
 
+  // Nav Handlers
+  const handleNavToS15 = () => {
+    if (onNavigate) {
+      emitAuditEvent({
+        stageId: 'S14',
+        actionId: 'NAV_NEXT_STAGE',
+        actorRole: role,
+        message: 'Navigated to S15 (Compliance / ESG) from S14 Next Step panel'
+      });
+      onNavigate('system_reports'); // Maps to S15 Compliance / ESG reports
+    }
+  };
+
+  const handleNavToControlTower = () => {
+    if (onNavigate) {
+      onNavigate('control_tower');
+    }
+  };
+
   // Guard States
   const startInspState = getAction('START_INSPECTION');
   const refurbishState = getAction('MARK_FOR_REFURBISH');
   const recycleState = getAction('MARK_FOR_RECYCLE');
   const completeRefurbState = getAction('COMPLETE_REFURBISH');
   const closeCaseState = getAction('CLOSE_CIRCULAR_CASE');
+
+  // Next Step Readiness
+  const isReadyForNext = s14Context.circularStatus === 'COMPLETED';
 
   // RBAC Access Check
   const hasAccess = 
@@ -312,6 +340,43 @@ export const ComplianceAudit: React.FC = () => {
              </div>
           </div>
         )}
+
+        {/* Next Step Guidance Panel */}
+        <div className={`col-span-12 bg-blue-50 border border-blue-200 rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm animate-in slide-in-from-top-3 ${!onNavigate ? 'hidden' : ''}`}>
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-blue-100 rounded-full text-blue-600">
+              <ArrowRight size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-blue-900 text-sm">Next Recommended Action</h3>
+              <p className="text-xs text-blue-700 mt-1 max-w-lg">
+                {isReadyForNext 
+                  ? "Circular lifecycle case finalized. Proceed to Compliance / ESG (S15) for reporting." 
+                  : "Circular processing active. Complete inspection, refurbish/recycle, and close case to proceed."}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3 w-full sm:w-auto">
+             <button 
+               onClick={handleNavToControlTower} 
+               className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-blue-200 text-blue-700 rounded-md text-xs font-bold hover:bg-blue-100 transition-colors"
+             >
+               <Radar size={14} /> Control Tower
+             </button>
+             <div className="flex-1 sm:flex-none flex flex-col items-center">
+               <button 
+                 onClick={handleNavToS15} 
+                 disabled={!isReadyForNext}
+                 className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-xs font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+               >
+                 <FileText size={14} /> Go to S15: Compliance / ESG
+               </button>
+               {!isReadyForNext && (
+                  <span className="text-[9px] text-red-500 mt-1 font-medium">Case Not Closed</span>
+               )}
+             </div>
+          </div>
+        </div>
 
         {/* Circular Processing Operations (S14 Actions) */}
         <div className={`col-span-12 bg-white rounded-lg shadow-sm border border-industrial-border p-4 transition-opacity ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>

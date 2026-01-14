@@ -91,3 +91,4 @@
 | **V33-S14-BP-01** | S14 Stage Contract Stub | 2026-01-16 16:15 (IST) | Added S14 refurbish & recycle context contract + mock data scaffold; S14 screen reads it (read-only). | No |
 | **V33-S14-FP-02** | S14 State Guard by Role | 2026-01-16 16:30 (IST) | Added S14 role/status UI guards for refurbish & recycle actions; no workflow change. | No |
 | **V33-S14-PP-03** | S14 Simulated Actions | 2026-01-16 16:45 (IST) | S14 actions simulate refurbish & recycle lifecycle; audit events emitted (frontend-only). | Yes |
+| **V33-S14-PP-04** | S14 Workflow Navigation Wiring | 2026-01-16 17:00 (IST) | Added S14 Next Step navigation to Compliance / ESG (S15) mapped to System Reports. | Yes |

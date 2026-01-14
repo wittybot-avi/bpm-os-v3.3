@@ -86,7 +86,7 @@ const App: React.FC = () => {
           {currentView === 'dispatch_execution' && <DispatchExecution />}
           {currentView === 'service_warranty' && <ServiceWarranty onNavigate={setCurrentView} />}
           {currentView === 'recycling_recovery' && <RecyclingRecovery onNavigate={setCurrentView} />}
-          {currentView === 'compliance_audit' && <ComplianceAudit />}
+          {currentView === 'compliance_audit' && <ComplianceAudit onNavigate={setCurrentView} />}
           {currentView === 'documentation' && <Documentation />}
           {currentView === 'live_status' && <LiveStatus />}
           {currentView === 'system_inventory' && <SystemInventory />}
