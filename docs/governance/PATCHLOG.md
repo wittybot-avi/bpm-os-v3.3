@@ -150,3 +150,4 @@ TEMPLATE:
 | **V33-S11-FP-02** | S11 State Guard by Role | 2026-01-16 13:30 (IST) | Added S11 role/status UI guards with blocked reasons; no workflow change. | No |
 | **V33-S11-PP-03** | S11 Simulated Actions | 2026-01-16 13:45 (IST) | S11 actions simulate dispatch & custody lifecycle; audit events emitted (frontend-only). | Yes |
 | **V33-S11-PP-04** | S11 Workflow Navigation Wiring | 2026-01-16 14:00 (IST) | Added S11 Next Step navigation panel guiding flow to S12 Warranty & Lifecycle. | Yes |
+| **V33-S12-BP-01** | S12 Stage Contract Stub | 2026-01-16 14:15 (IST) | Added S12 warranty & lifecycle context contract + mock data scaffold; S12 screen reads it (read-only). | No |

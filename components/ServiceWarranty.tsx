@@ -15,10 +15,12 @@ import {
   CheckCircle2,
   Signal,
   ShieldCheck,
-  User
+  User,
+  Clock
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
+import { getMockS12Context } from '../stages/s12/s12Contract';
 
 // Mock Data Types
 interface DeployedPack {
@@ -94,6 +96,9 @@ export const ServiceWarranty: React.FC = () => {
   const { role } = useContext(UserContext);
   const [selectedPack, setSelectedPack] = useState<DeployedPack>(DEPLOYED_FLEET[0]);
 
+  // Read-Only S12 Context
+  const s12Context = getMockS12Context();
+
   // RBAC Access Check
   const hasAccess = 
     role === UserRole.SYSTEM_ADMIN || 
@@ -136,9 +141,19 @@ export const ServiceWarranty: React.FC = () => {
            </h1>
            <p className="text-slate-500 text-sm mt-1">Field asset monitoring, warranty claims, and service triage.</p>
         </div>
-        <div className="flex items-center gap-2 bg-slate-100 px-3 py-1 rounded text-xs font-mono text-slate-600 border border-slate-200">
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex items-center gap-2 bg-slate-100 px-3 py-1 rounded text-xs font-mono text-slate-600 border border-slate-200">
              <Signal size={14} className="text-green-500" />
              <span>IOT TELEMETRY: ONLINE</span>
+          </div>
+          <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2 mt-1">
+            <Clock size={10} />
+            <span>Active: {s12Context.packsUnderWarrantyCount}</span>
+            <span className="text-slate-300">|</span>
+            <span>Claims: {s12Context.activeClaimsCount}</span>
+            <span className="text-slate-300">|</span>
+            <span className="font-bold text-blue-600">S12: {s12Context.lifecycleStatus}</span>
+          </div>
         </div>
       </div>
 
