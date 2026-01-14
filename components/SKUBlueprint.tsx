@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { UserContext, UserRole } from '../types';
 import { 
   ShieldAlert, 
@@ -19,13 +19,16 @@ import {
   Send,
   ThumbsUp,
   UploadCloud,
-  Plus
+  Plus,
+  History,
+  CheckCircle2
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
 import { DisabledHint } from './DisabledHint';
-import { getMockS1Context } from '../stages/s1/s1Contract';
+import { getMockS1Context, S1Context } from '../stages/s1/s1Contract';
 import { getS1ActionState, S1ActionId } from '../stages/s1/s1Guards';
+import { emitAuditEvent, getAuditEvents, AuditEvent } from '../utils/auditEvents';
 
 // Mock Data Types
 interface SKU {
@@ -97,11 +100,106 @@ export const SKUBlueprint: React.FC = () => {
   const { role } = useContext(UserContext);
   const [selectedSku, setSelectedSku] = useState<SKU>(MOCK_SKUS[0]);
 
-  // S1 Contract Integration
-  const s1Context = getMockS1Context();
+  // Local State for S1 Context Simulation
+  const [s1Context, setS1Context] = useState<S1Context>(getMockS1Context());
+  const [localEvents, setLocalEvents] = useState<AuditEvent[]>([]);
+  const [isSimulating, setIsSimulating] = useState(false);
+
+  // Load events on mount
+  useEffect(() => {
+    setLocalEvents(getAuditEvents().filter(e => e.stageId === 'S1'));
+  }, []);
 
   // Helper to resolve action state
   const getAction = (actionId: S1ActionId) => getS1ActionState(role, s1Context, actionId);
+
+  // Action Handlers
+  const handleCreateSku = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS1Context(prev => ({ ...prev, totalSkus: prev.totalSkus + 1 }));
+      const evt = emitAuditEvent({
+        stageId: 'S1',
+        actionId: 'CREATE_SKU',
+        actorRole: role,
+        message: 'Defined new SKU configuration draft'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleEditBlueprint = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      // If we are editing, we are likely in DRAFT. If it was APPROVED (though guards prevent this), we would bump revision.
+      // Since guards ensure we are in DRAFT, we just update timestamp.
+      setS1Context(prev => ({ ...prev, lastBlueprintUpdate: now }));
+      
+      const evt = emitAuditEvent({
+        stageId: 'S1',
+        actionId: 'EDIT_BLUEPRINT',
+        actorRole: role,
+        message: `Updated blueprint specs for ${s1Context.activeRevision}`
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 800);
+  };
+
+  const handleSubmitReview = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS1Context(prev => ({ ...prev, approvalStatus: 'REVIEW' }));
+      
+      const evt = emitAuditEvent({
+        stageId: 'S1',
+        actionId: 'SUBMIT_FOR_REVIEW',
+        actorRole: role,
+        message: `Submitted ${s1Context.activeRevision} for engineering approval`
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 1000);
+  };
+
+  const handleApprove = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      setS1Context(prev => ({ 
+        ...prev, 
+        approvalStatus: 'APPROVED', 
+        engineeringSignoff: role === UserRole.SYSTEM_ADMIN ? 'SYS-ADMIN-OVERRIDE' : 'QA-LEAD-SIG',
+        lastBlueprintUpdate: now
+      }));
+      
+      const evt = emitAuditEvent({
+        stageId: 'S1',
+        actionId: 'APPROVE_BLUEPRINT',
+        actorRole: role,
+        message: `Blueprint ${s1Context.activeRevision} formally approved`
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 1200);
+  };
+
+  const handlePublish = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      // Just an event for now, typically this would lock the version and start a new one
+      const evt = emitAuditEvent({
+        stageId: 'S1',
+        actionId: 'PUBLISH_SKU_BLUEPRINT',
+        actorRole: role,
+        message: `Published SKU Catalog ${s1Context.activeRevision} to manufacturing`
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 1000);
+  };
 
   // Pre-calculate action states
   const createSkuState = getAction('CREATE_SKU');
@@ -115,7 +213,7 @@ export const SKUBlueprint: React.FC = () => {
     role === UserRole.SYSTEM_ADMIN || 
     role === UserRole.ENGINEERING || 
     role === UserRole.MANAGEMENT ||
-    role === UserRole.QA_ENGINEER; // Added QA Engineer for Review logic visibility
+    role === UserRole.QA_ENGINEER;
 
   if (!hasAccess) {
     return (
@@ -128,7 +226,7 @@ export const SKUBlueprint: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 h-full flex flex-col animate-in fade-in duration-300">
+    <div className="space-y-6 h-full flex flex-col animate-in fade-in duration-300 pb-12">
       {/* Standard Header */}
       <div className="flex items-center justify-between shrink-0 border-b border-slate-200 pb-4">
         <div>
@@ -145,7 +243,8 @@ export const SKUBlueprint: React.FC = () => {
           <div className="flex gap-2">
             <button 
               className="bg-brand-600 text-white px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400"
-              disabled={!createSkuState.enabled}
+              disabled={!createSkuState.enabled || isSimulating}
+              onClick={handleCreateSku}
               title={createSkuState.reason}
             >
               <Plus size={16} />
@@ -168,8 +267,27 @@ export const SKUBlueprint: React.FC = () => {
       <StageStateBanner stageId="S1" />
       <PreconditionsPanel stageId="S1" />
 
+      {/* Recent Local Activity Panel (Reused Pattern) */}
+      {localEvents.length > 0 && (
+        <div className="bg-slate-50 border border-slate-200 rounded-md p-3 mb-6 animate-in slide-in-from-top-2">
+           <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase mb-2">
+              <History size={14} /> Recent S1 Activity (Session)
+           </div>
+           <div className="space-y-2">
+              {localEvents.slice(0, 3).map(evt => (
+                 <div key={evt.id} className="flex items-center gap-3 text-sm bg-white p-2 rounded border border-slate-100 shadow-sm">
+                    <span className="font-mono text-[10px] text-slate-400">{evt.timestamp}</span>
+                    <span className="font-bold text-slate-700 text-xs px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">{evt.actorRole}</span>
+                    <span className="text-slate-600 flex-1 truncate">{evt.message}</span>
+                    <CheckCircle2 size={14} className="text-green-500" />
+                 </div>
+              ))}
+           </div>
+        </div>
+      )}
+
       {/* Content Split View */}
-      <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
+      <div className={`flex-1 grid grid-cols-12 gap-6 min-h-0 ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>
         
         {/* Left: Master List */}
         <div className="col-span-4 bg-white rounded-lg shadow-sm border border-industrial-border flex flex-col overflow-hidden">
@@ -244,6 +362,7 @@ export const SKUBlueprint: React.FC = () => {
                 <button 
                   className="text-brand-600 text-sm font-medium hover:underline disabled:opacity-50 disabled:no-underline flex items-center gap-1" 
                   disabled={!editBlueprintState.enabled}
+                  onClick={handleEditBlueprint}
                   title={editBlueprintState.reason}
                 >
                   <Edit2 size={14} /> Edit Blueprint
@@ -258,6 +377,7 @@ export const SKUBlueprint: React.FC = () => {
             <div className="flex items-center gap-2 pt-2 border-t border-slate-50">
                 <button 
                   disabled={!submitReviewState.enabled}
+                  onClick={handleSubmitReview}
                   title={submitReviewState.reason}
                   className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-50 text-blue-700 border border-blue-100 rounded hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-100 text-xs font-bold transition-colors"
                 >
@@ -266,6 +386,7 @@ export const SKUBlueprint: React.FC = () => {
                 
                 <button 
                   disabled={!approveState.enabled}
+                  onClick={handleApprove}
                   title={approveState.reason}
                   className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-purple-50 text-purple-700 border border-purple-100 rounded hover:bg-purple-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-100 text-xs font-bold transition-colors"
                 >
@@ -274,6 +395,7 @@ export const SKUBlueprint: React.FC = () => {
 
                 <button 
                   disabled={!publishState.enabled}
+                  onClick={handlePublish}
                   title={publishState.reason}
                   className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-50 text-green-700 border border-green-100 rounded hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-100 text-xs font-bold transition-colors"
                 >
