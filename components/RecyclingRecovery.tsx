@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { UserContext, UserRole } from '../types';
+import { UserContext, UserRole, NavView } from '../types';
 import { 
   ShieldAlert, 
   Recycle, 
@@ -23,7 +23,8 @@ import {
   XCircle,
   History,
   CheckCircle2,
-  RefreshCw
+  RefreshCw,
+  Radar
 } from 'lucide-react';
 import { getMockS13Context, S13Context } from '../stages/s13/s13Contract';
 import { getS13ActionState, S13ActionId } from '../stages/s13/s13Guards';
@@ -74,7 +75,11 @@ const INTAKE_QUEUE: EolUnit[] = [
   }
 ];
 
-export const RecyclingRecovery: React.FC = () => {
+interface RecyclingRecoveryProps {
+  onNavigate?: (view: NavView) => void;
+}
+
+export const RecyclingRecovery: React.FC<RecyclingRecoveryProps> = ({ onNavigate }) => {
   const { role } = useContext(UserContext);
   const [selectedUnit, setSelectedUnit] = useState<EolUnit>(INTAKE_QUEUE[0]);
 
@@ -201,6 +206,26 @@ export const RecyclingRecovery: React.FC = () => {
     }, 400);
   };
 
+  // Nav Handlers
+  const handleNavToControlTower = () => {
+    if (onNavigate) {
+      onNavigate('control_tower');
+    }
+  };
+
+  const handleNavToS14 = () => {
+    if (onNavigate) {
+      emitAuditEvent({
+        stageId: 'S13',
+        actionId: 'NAV_NEXT_STAGE',
+        actorRole: role,
+        message: 'Navigated to S14 (Compliance/Refurbish) from S13 Next Step panel'
+      });
+      // Guiding to Compliance & Audit (S17 in code, S14 in greenfield flow)
+      onNavigate('compliance_audit');
+    }
+  };
+
   // RBAC Access Check
   const hasAccess = 
     role === UserRole.SYSTEM_ADMIN || 
@@ -216,6 +241,8 @@ export const RecyclingRecovery: React.FC = () => {
   const initReturnState = getAction('INITIATE_RETURN');
   const confirmReturnState = getAction('CONFIRM_RETURN_RECEIPT');
   const closeCaseState = getAction('CLOSE_SERVICE_CASE');
+
+  const isReadyForNext = s13Context.serviceStatus === 'CLOSED';
 
   if (!hasAccess) {
     return (
@@ -289,6 +316,43 @@ export const RecyclingRecovery: React.FC = () => {
            </div>
         </div>
       )}
+
+      {/* Next Step Guidance Panel */}
+      <div className={`bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm animate-in slide-in-from-top-3 ${!onNavigate ? 'hidden' : ''}`}>
+        <div className="flex items-start gap-3">
+          <div className="p-2 bg-blue-100 rounded-full text-blue-600">
+            <ArrowRight size={20} />
+          </div>
+          <div>
+            <h3 className="font-bold text-blue-900 text-sm">Next Recommended Action</h3>
+            <p className="text-xs text-blue-700 mt-1 max-w-lg">
+              {isReadyForNext 
+                ? "Service case closed. Proceed to Compliance & Audit (S14) for final lifecycle verification." 
+                : "Service action in progress. Close the case to enable downstream audit and disposal."}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 w-full sm:w-auto">
+           <button 
+             onClick={handleNavToControlTower} 
+             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-blue-200 text-blue-700 rounded-md text-xs font-bold hover:bg-blue-100 transition-colors"
+           >
+             <Radar size={14} /> Control Tower
+           </button>
+           <div className="flex-1 sm:flex-none flex flex-col items-center">
+             <button 
+               onClick={handleNavToS14} 
+               disabled={!isReadyForNext}
+               className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-xs font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+             >
+               <ShieldCheck size={14} /> Go to S14: Compliance & Audit
+             </button>
+             {!isReadyForNext && (
+                <span className="text-[9px] text-red-500 mt-1 font-medium">Case Not Closed</span>
+             )}
+           </div>
+        </div>
+      </div>
 
       {/* Service & Returns Operations Toolbar */}
       <div className={`bg-white p-4 rounded-lg shadow-sm border border-industrial-border flex flex-col md:flex-row items-center gap-4 justify-between transition-opacity ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>
