@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { UserContext, UserRole } from '../types';
 import { 
   ShieldAlert, 
@@ -13,11 +13,16 @@ import {
   Search,
   FileText,
   Database,
-  Activity
+  Activity,
+  History,
+  CheckCircle2
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
+import { DisabledHint } from './DisabledHint';
 import { getMockS6Context, S6Context } from '../stages/s6/s6Contract';
+import { getS6ActionState, S6ActionId } from '../stages/s6/s6Guards';
+import { emitAuditEvent, getAuditEvents, AuditEvent } from '../utils/auditEvents';
 
 // Mock Data Types
 interface QAModule {
@@ -84,8 +89,126 @@ export const ModuleQA: React.FC = () => {
   const [selectedModule, setSelectedModule] = useState<QAModule>(QA_QUEUE[0]);
   const [notes, setNotes] = useState('');
   
-  // S6 Context (Read-Only Mock)
-  const [s6Context] = useState<S6Context>(getMockS6Context());
+  // S6 Context & Event State
+  const [s6Context, setS6Context] = useState<S6Context>(getMockS6Context());
+  const [localEvents, setLocalEvents] = useState<AuditEvent[]>([]);
+  const [isSimulating, setIsSimulating] = useState(false);
+
+  // Load events on mount
+  useEffect(() => {
+    setLocalEvents(getAuditEvents().filter(e => e.stageId === 'S6'));
+  }, []);
+
+  // Helper for Guards
+  const getAction = (actionId: S6ActionId) => getS6ActionState(role, s6Context, actionId);
+
+  // Action Handlers
+  const handleStartSession = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS6Context(prev => ({
+        ...prev,
+        qaStatus: 'INSPECTING'
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S6',
+        actionId: 'START_SESSION',
+        actorRole: role,
+        message: `Inspection session started for ${selectedModule.moduleId}`
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleLogObservation = (result: 'Pass' | 'Fail') => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      // In a real app, this would update specific checklist items.
+      // Here we just log the event to simulate activity.
+      const evt = emitAuditEvent({
+        stageId: 'S6',
+        actionId: 'LOG_OBSERVATION',
+        actorRole: role,
+        message: `Observation recorded: ${result} on checklist item`
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 400);
+  };
+
+  const handleSubmitPass = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      setS6Context(prev => ({
+        ...prev,
+        qaStatus: 'IDLE',
+        modulesPendingCount: Math.max(0, prev.modulesPendingCount - 1),
+        modulesClearedCount: prev.modulesClearedCount + 1,
+        lastInspectionAt: now
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S6',
+        actionId: 'SUBMIT_PASS',
+        actorRole: role,
+        message: `Module ${selectedModule.moduleId} PASSED inspection`
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 800);
+  };
+
+  const handleSubmitRework = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      setS6Context(prev => ({
+        ...prev,
+        qaStatus: 'IDLE',
+        modulesPendingCount: Math.max(0, prev.modulesPendingCount - 1),
+        modulesRejectedCount: prev.modulesRejectedCount + 1, // Treating rework as rejection bucket for demo
+        lastInspectionAt: now
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S6',
+        actionId: 'SUBMIT_REWORK',
+        actorRole: role,
+        message: `Module ${selectedModule.moduleId} flagged for REWORK`
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 800);
+  };
+
+  const handleSubmitReject = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      setS6Context(prev => ({
+        ...prev,
+        qaStatus: 'IDLE',
+        modulesPendingCount: Math.max(0, prev.modulesPendingCount - 1),
+        modulesRejectedCount: prev.modulesRejectedCount + 1,
+        lastInspectionAt: now
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S6',
+        actionId: 'SUBMIT_REJECT',
+        actorRole: role,
+        message: `Module ${selectedModule.moduleId} REJECTED (Scrap)`
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 800);
+  };
+
+  // Calculate Action States
+  const startSessionState = getAction('START_SESSION');
+  const logObservationState = getAction('LOG_OBSERVATION');
+  const submitPassState = getAction('SUBMIT_PASS');
+  const submitReworkState = getAction('SUBMIT_REWORK');
+  const submitRejectState = getAction('SUBMIT_REJECT');
 
   // RBAC Access Check
   const hasAccess = 
@@ -93,8 +216,6 @@ export const ModuleQA: React.FC = () => {
     role === UserRole.QA_ENGINEER || 
     role === UserRole.SUPERVISOR || 
     role === UserRole.MANAGEMENT;
-
-  const isReadOnly = role === UserRole.MANAGEMENT || role === UserRole.SUPERVISOR;
 
   if (!hasAccess) {
     return (
@@ -143,8 +264,27 @@ export const ModuleQA: React.FC = () => {
       <StageStateBanner stageId="S6" />
       <PreconditionsPanel stageId="S6" />
 
+      {/* Recent Local Activity Panel */}
+      {localEvents.length > 0 && (
+        <div className="bg-slate-50 border border-slate-200 rounded-md p-3 mb-6 animate-in slide-in-from-top-2">
+           <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase mb-2">
+              <History size={14} /> Recent S6 Activity (Session)
+           </div>
+           <div className="space-y-2">
+              {localEvents.slice(0, 3).map(evt => (
+                 <div key={evt.id} className="flex items-center gap-3 text-sm bg-white p-2 rounded border border-slate-100 shadow-sm">
+                    <span className="font-mono text-[10px] text-slate-400">{evt.timestamp}</span>
+                    <span className="font-bold text-slate-700 text-xs px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">{evt.actorRole}</span>
+                    <span className="text-slate-600 flex-1 truncate">{evt.message}</span>
+                    <CheckCircle2 size={14} className="text-green-500" />
+                 </div>
+              ))}
+           </div>
+        </div>
+      )}
+
       {/* Main Grid */}
-      <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
+      <div className={`flex-1 grid grid-cols-12 gap-6 min-h-0 ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>
         
         {/* Left Col: Inspection Queue */}
         <div className="col-span-4 bg-white rounded-lg shadow-sm border border-industrial-border flex flex-col overflow-hidden">
@@ -203,14 +343,18 @@ export const ModuleQA: React.FC = () => {
               </div>
               <p className="text-sm text-slate-500">SKU: {selectedModule.sku}</p>
             </div>
-            <div className="text-right">
-                <div className="text-xs text-slate-500 uppercase font-bold">Current Status</div>
-                <div className={`text-lg font-bold ${
-                    selectedModule.status === 'Rework' ? 'text-amber-600' : 
-                    selectedModule.status === 'Cleared' ? 'text-green-600' : 'text-amber-600'
-                }`}>
-                    {selectedModule.status}
-                </div>
+            <div className="flex flex-col items-end gap-2">
+                <button
+                  onClick={handleStartSession}
+                  disabled={!startSessionState.enabled || isSimulating}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md font-bold text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors"
+                  title={startSessionState.reason}
+                >
+                  Start Inspection
+                </button>
+                {!startSessionState.enabled && s6Context.qaStatus !== 'INSPECTING' && (
+                   <span className="text-[10px] text-red-500">{startSessionState.reason}</span>
+                )}
             </div>
           </div>
 
@@ -233,10 +377,20 @@ export const ModuleQA: React.FC = () => {
                                     <div className="text-xs text-slate-400">Spec: {item.spec}</div>
                                 </div>
                                 <div className="flex gap-2">
-                                    <button className="h-8 w-8 rounded flex items-center justify-center border border-slate-300 text-slate-300 hover:text-green-600 hover:border-green-600 disabled:opacity-50" disabled>
+                                    <button 
+                                      className="h-8 w-8 rounded flex items-center justify-center border border-slate-300 text-slate-300 hover:text-green-600 hover:border-green-600 disabled:opacity-50 disabled:hover:text-slate-300 disabled:hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-green-500" 
+                                      onClick={() => handleLogObservation('Pass')}
+                                      disabled={!logObservationState.enabled}
+                                      title={logObservationState.reason}
+                                    >
                                         <ThumbsUp size={14} />
                                     </button>
-                                    <button className="h-8 w-8 rounded flex items-center justify-center border border-slate-300 text-slate-300 hover:text-red-600 hover:border-red-600 disabled:opacity-50" disabled>
+                                    <button 
+                                      className="h-8 w-8 rounded flex items-center justify-center border border-slate-300 text-slate-300 hover:text-red-600 hover:border-red-600 disabled:opacity-50 disabled:hover:text-slate-300 disabled:hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500" 
+                                      onClick={() => handleLogObservation('Fail')}
+                                      disabled={!logObservationState.enabled}
+                                      title={logObservationState.reason}
+                                    >
                                         <ThumbsDown size={14} />
                                     </button>
                                 </div>
@@ -296,45 +450,62 @@ export const ModuleQA: React.FC = () => {
                     Quality Notes (Session Only)
                 </h3>
                 <textarea 
-                    className="w-full text-sm p-3 border border-amber-200 rounded focus:outline-none focus:ring-2 focus:ring-amber-500/50 bg-white text-slate-700"
+                    className="w-full text-sm p-3 border border-amber-200 rounded focus:outline-none focus:ring-2 focus:ring-amber-500/50 bg-white text-slate-700 disabled:opacity-50 disabled:bg-slate-100"
                     rows={3}
                     placeholder="Enter observations..."
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    disabled={isReadOnly}
+                    disabled={!logObservationState.enabled}
                 />
+                {!logObservationState.enabled && (
+                   <DisabledHint reason={logObservationState.reason || 'Blocked'} className="mt-2" />
+                )}
             </section>
 
              {/* 3. Disposition Actions */}
             <section className="pt-4 border-t border-slate-100">
                 <div className="flex gap-4">
-                    <button 
-                        disabled={isReadOnly || true} 
-                        className="flex-1 bg-green-600 text-white py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 opacity-50 cursor-not-allowed shadow-sm hover:bg-green-700"
-                        title="Demo Mode: Backend locked"
-                    >
-                        <ThumbsUp size={16} />
-                        Mark as Cleared
-                    </button>
-                    <button 
-                        disabled={isReadOnly || true} 
-                        className="flex-1 bg-amber-500 text-white py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 opacity-50 cursor-not-allowed shadow-sm hover:bg-amber-600"
-                        title="Demo Mode: Backend locked"
-                    >
-                        <AlertOctagon size={16} />
-                        Route to Rework
-                    </button>
-                    <button 
-                        disabled={isReadOnly || true} 
-                        className="flex-1 bg-red-600 text-white py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 opacity-50 cursor-not-allowed shadow-sm hover:bg-red-700"
-                        title="Demo Mode: Backend locked"
-                    >
-                        <ShieldAlert size={16} />
-                        Quarantine / Hold
-                    </button>
+                    <div className="flex-1 flex flex-col">
+                        <button 
+                            disabled={!submitPassState.enabled}
+                            onClick={handleSubmitPass}
+                            className="w-full bg-green-600 text-white py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 shadow-sm hover:bg-green-700"
+                            title={submitPassState.reason}
+                        >
+                            <ThumbsUp size={16} />
+                            Mark as Cleared
+                        </button>
+                        {!submitPassState.enabled && <DisabledHint reason={submitPassState.reason || 'Blocked'} className="mx-auto" />}
+                    </div>
+                    
+                    <div className="flex-1 flex flex-col">
+                        <button 
+                            disabled={!submitReworkState.enabled} 
+                            onClick={handleSubmitRework}
+                            className="w-full bg-amber-500 text-white py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 shadow-sm hover:bg-amber-600"
+                            title={submitReworkState.reason}
+                        >
+                            <AlertOctagon size={16} />
+                            Route to Rework
+                        </button>
+                        {!submitReworkState.enabled && <DisabledHint reason={submitReworkState.reason || 'Blocked'} className="mx-auto" />}
+                    </div>
+
+                    <div className="flex-1 flex flex-col">
+                        <button 
+                            disabled={!submitRejectState.enabled} 
+                            onClick={handleSubmitReject}
+                            className="w-full bg-red-600 text-white py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 shadow-sm hover:bg-red-700"
+                            title={submitRejectState.reason}
+                        >
+                            <ShieldAlert size={16} />
+                            Quarantine / Hold
+                        </button>
+                        {!submitRejectState.enabled && <DisabledHint reason={submitRejectState.reason || 'Blocked'} className="mx-auto" />}
+                    </div>
                 </div>
                  <p className="text-center text-xs text-slate-400 mt-3">
-                    Disposition actions are disabled in Frontend-Only Demo Mode.
+                    Disposition actions update production counters locally in demo mode.
                 </p>
             </section>
             
