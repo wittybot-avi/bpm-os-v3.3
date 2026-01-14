@@ -110,3 +110,4 @@ TEMPLATE:
 | **V33-S1-BP-01** | S1 Stage Contract Stub | 2026-01-16 03:30 (IST) | Added S1 context contract + mock data scaffold; S1 screen reads it (read-only). | No |
 | **V33-S1-FP-02** | S1 State Guard by Role | 2026-01-16 03:45 (IST) | Added S1 role/state UI guards (enable/disable) with clear blocked reasons; no workflow change. | No |
 | **V33-S1-PP-03** | S1 Simulated Actions | 2026-01-16 04:00 (IST) | S1 actions now simulate blueprint lifecycle + SKU changes; audit events emitted (frontend-only). | Yes |
+| **V33-S1-PP-04** | S1 Workflow Navigation Wiring | 2026-01-16 04:15 (IST) | Added S1 Next Step navigation panel guiding flow to S2 Procurement. | Yes |

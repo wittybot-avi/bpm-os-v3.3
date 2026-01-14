@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { UserContext, UserRole } from '../types';
+import { UserContext, UserRole, NavView } from '../types';
 import { 
   ShieldAlert, 
   Cpu, 
@@ -21,7 +21,10 @@ import {
   UploadCloud,
   Plus,
   History,
-  CheckCircle2
+  CheckCircle2,
+  ArrowRight,
+  Radar,
+  ShoppingCart
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
@@ -96,7 +99,11 @@ const MOCK_SKUS: SKU[] = [
   }
 ];
 
-export const SKUBlueprint: React.FC = () => {
+interface SKUBlueprintProps {
+  onNavigate?: (view: NavView) => void;
+}
+
+export const SKUBlueprint: React.FC<SKUBlueprintProps> = ({ onNavigate }) => {
   const { role } = useContext(UserContext);
   const [selectedSku, setSelectedSku] = useState<SKU>(MOCK_SKUS[0]);
 
@@ -201,12 +208,32 @@ export const SKUBlueprint: React.FC = () => {
     }, 1000);
   };
 
+  const handleNavToS2 = () => {
+    if (onNavigate) {
+      emitAuditEvent({
+        stageId: 'S1',
+        actionId: 'NAV_NEXT_STAGE',
+        actorRole: role,
+        message: 'Navigated to S2: Procurement from S1'
+      });
+      onNavigate('procurement');
+    }
+  };
+
+  const handleNavToControlTower = () => {
+    if (onNavigate) {
+      onNavigate('control_tower');
+    }
+  };
+
   // Pre-calculate action states
   const createSkuState = getAction('CREATE_SKU');
   const editBlueprintState = getAction('EDIT_BLUEPRINT');
   const submitReviewState = getAction('SUBMIT_FOR_REVIEW');
   const approveState = getAction('APPROVE_BLUEPRINT');
   const publishState = getAction('PUBLISH_SKU_BLUEPRINT');
+
+  const isReadyForNext = s1Context.approvalStatus === 'APPROVED';
 
   // RBAC Access Check
   const hasAccess = 
@@ -285,6 +312,43 @@ export const SKUBlueprint: React.FC = () => {
            </div>
         </div>
       )}
+
+      {/* Next Step Guidance Panel */}
+      <div className={`bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm animate-in slide-in-from-top-3 ${!onNavigate ? 'hidden' : ''}`}>
+        <div className="flex items-start gap-3">
+          <div className="p-2 bg-blue-100 rounded-full text-blue-600">
+            <ArrowRight size={20} />
+          </div>
+          <div>
+            <h3 className="font-bold text-blue-900 text-sm">Next Recommended Action</h3>
+            <p className="text-xs text-blue-700 mt-1 max-w-lg">
+              {isReadyForNext 
+                ? "Blueprint is approved. Proceed to Commercial Procurement (S2) to initiate sourcing." 
+                : "Blueprint approval pending. Complete S1 review actions to unlock downstream procurement."}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 w-full sm:w-auto">
+           <button 
+             onClick={handleNavToControlTower} 
+             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-blue-200 text-blue-700 rounded-md text-xs font-bold hover:bg-blue-100 transition-colors"
+           >
+             <Radar size={14} /> Control Tower
+           </button>
+           <div className="flex-1 sm:flex-none flex flex-col items-center">
+             <button 
+               onClick={handleNavToS2} 
+               disabled={!isReadyForNext}
+               className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-xs font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+             >
+               <ShoppingCart size={14} /> Go to S2: Procurement
+             </button>
+             {!isReadyForNext && (
+                <span className="text-[9px] text-red-500 mt-1 font-medium">Preconditions Not Met</span>
+             )}
+           </div>
+        </div>
+      </div>
 
       {/* Content Split View */}
       <div className={`flex-1 grid grid-cols-12 gap-6 min-h-0 ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>
