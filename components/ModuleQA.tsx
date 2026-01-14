@@ -11,10 +11,13 @@ import {
   AlertOctagon,
   Clock,
   Search,
-  FileText
+  FileText,
+  Database,
+  Activity
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
+import { getMockS6Context, S6Context } from '../stages/s6/s6Contract';
 
 // Mock Data Types
 interface QAModule {
@@ -80,6 +83,9 @@ export const ModuleQA: React.FC = () => {
   const { role } = useContext(UserContext);
   const [selectedModule, setSelectedModule] = useState<QAModule>(QA_QUEUE[0]);
   const [notes, setNotes] = useState('');
+  
+  // S6 Context (Read-Only Mock)
+  const [s6Context] = useState<S6Context>(getMockS6Context());
 
   // RBAC Access Check
   const hasAccess = 
@@ -113,6 +119,24 @@ export const ModuleQA: React.FC = () => {
              Module Quality Assurance (S6)
            </h1>
            <p className="text-slate-500 text-sm mt-1">Inspect assembled modules, record measurements, and assign quality disposition.</p>
+        </div>
+        
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex items-center gap-2">
+               <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                 s6Context.qaStatus === 'INSPECTING' ? 'bg-blue-100 text-blue-700 animate-pulse' :
+                 s6Context.qaStatus === 'BLOCKED' ? 'bg-red-100 text-red-700' :
+                 'bg-slate-100 text-slate-600'
+               }`}>
+                  <Activity size={14} /> QA: {s6Context.qaStatus}
+               </span>
+          </div>
+          <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2 mt-1">
+            <Database size={10} />
+            <span>Pending: {s6Context.modulesPendingCount}</span>
+            <span className="text-slate-300">|</span>
+            <span className="text-green-600 font-bold">Passed: {s6Context.modulesClearedCount}</span>
+          </div>
         </div>
       </div>
 
