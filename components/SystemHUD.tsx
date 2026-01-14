@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
-import { UserContext, APP_VERSION, PATCH_ID, NavView } from '../types';
+import { UserContext, APP_VERSION, PATCH_ID, BRANCH_ID, NavView } from '../types';
 import { 
   Activity, 
   Lock, 
@@ -152,7 +152,7 @@ export const SystemHUD: React.FC<SystemHUDProps> = ({ onNavigate }) => {
                  </div>
                  <div className="flex justify-between text-xs">
                     <span className="text-slate-500">Branch</span>
-                    <span className="text-brand-400 font-bold">V3.3</span>
+                    <span className="text-brand-400 font-bold">{BRANCH_ID}</span>
                  </div>
                  <div className="flex justify-between text-xs">
                     <span className="text-slate-500">Patch</span>

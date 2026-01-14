@@ -1,4 +1,5 @@
 import { createContext } from 'react';
+import { APP_NAME, APP_VERSION, PATCH_ID, BRANCH_ID } from './appConfig';
 
 // RBAC Roles
 export enum UserRole {
@@ -37,10 +38,8 @@ export const UserContext = createContext<UserContextType>({
   checkAccess: () => false
 });
 
-// App Constants
-export const APP_VERSION = 'V3.3';
-export const APP_NAME = 'BPM-OS';
-export const PATCH_ID = 'V33-CORE-BP-00';
+// App Constants (Re-exported from SSoT)
+export { APP_NAME, APP_VERSION, PATCH_ID, BRANCH_ID };
 
 // Navigation Views
 export type NavView = 

@@ -75,3 +75,4 @@
 | **EXT-HO-094** | Handover Patch | Consistency & Validation Pass | **STABLE** | Aligned Glossary and Contract enums with Frontend Implementation. | 2026-01-15 22:00 (IST) |
 | **EXT-HO-095** | Handover Patch | Final Design Freeze & Handover Declaration | **STABLE** | Formally declared Design Freeze and locked all handover artifacts. | 2026-01-15 22:30 (IST) |
 | **V33-CORE-BP-00** | Baseline Patch | V3.3 Baseline Lock | **STABLE** | V3.3 baseline lock, HUD branch tag, do-not-break manifest. No behavior change. | 2026-01-15 22:45 (IST) |
+| **V33-CORE-BP-01** | Governance Patch | Single Source of Truth | **STABLE** | Consolidated version constants to appConfig.ts. HUD reads dynamic branch ID. No behavior change. | 2026-01-15 23:00 (IST) |
