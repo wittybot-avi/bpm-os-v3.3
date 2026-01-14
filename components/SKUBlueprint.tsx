@@ -12,11 +12,14 @@ import {
   Globe,
   Settings,
   Box,
-  Layers
+  Layers,
+  Database,
+  GitCommit
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
 import { DisabledHint } from './DisabledHint';
+import { getMockS1Context } from '../stages/s1/s1Contract';
 
 // Mock Data Types
 interface SKU {
@@ -88,6 +91,9 @@ export const SKUBlueprint: React.FC = () => {
   const { role } = useContext(UserContext);
   const [selectedSku, setSelectedSku] = useState<SKU>(MOCK_SKUS[0]);
 
+  // S1 Contract Integration
+  const s1Context = getMockS1Context();
+
   // RBAC Access Check
   const hasAccess = 
     role === UserRole.SYSTEM_ADMIN || 
@@ -118,15 +124,24 @@ export const SKUBlueprint: React.FC = () => {
            </h1>
            <p className="text-slate-500 text-sm mt-1">Define battery chemistry, electrical specs, and regulatory compliance.</p>
         </div>
-        <div className="flex flex-col items-end">
-          <button 
-            className="bg-brand-600 text-white px-4 py-2 rounded-md font-medium text-sm opacity-50 cursor-not-allowed flex items-center gap-2"
-            disabled
-            title="Demo Mode: Backend creation disabled"
-          >
-            <span>+ Create New SKU</span>
-          </button>
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex gap-2">
+            <button 
+              className="bg-brand-600 text-white px-4 py-2 rounded-md font-medium text-sm opacity-50 cursor-not-allowed flex items-center gap-2"
+              disabled
+              title="Demo Mode: Backend creation disabled"
+            >
+              <span>+ Create New SKU</span>
+            </button>
+          </div>
           <DisabledHint reason="Demo Mode Active" nextActionHint="Backend Integration Required" />
+          
+          <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2 mt-1">
+            <Database size={10} /> 
+            <span>Ctx: {s1Context.activeRevision}</span>
+            <span className="text-slate-300">|</span>
+            <span>{s1Context.approvalStatus}</span>
+          </div>
         </div>
       </div>
 
@@ -138,9 +153,14 @@ export const SKUBlueprint: React.FC = () => {
         
         {/* Left: Master List */}
         <div className="col-span-4 bg-white rounded-lg shadow-sm border border-industrial-border flex flex-col overflow-hidden">
-          <div className="p-4 border-b border-slate-100 bg-slate-50">
-            <h3 className="font-semibold text-slate-700">Battery Pack Models</h3>
-            <span className="text-xs text-slate-400">{MOCK_SKUS.length} Configurations Found</span>
+          <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+            <div>
+              <h3 className="font-semibold text-slate-700">Battery Pack Models</h3>
+              <span className="text-xs text-slate-400">{s1Context.totalSkus} Configurations Found</span>
+            </div>
+            <div className="text-[10px] bg-slate-100 px-2 py-1 rounded text-slate-500 font-mono">
+              Updated: {s1Context.lastBlueprintUpdate.split(' ')[0]}
+            </div>
           </div>
           <div className="overflow-y-auto flex-1 p-2 space-y-2">
             {MOCK_SKUS.length === 0 ? (
@@ -192,7 +212,12 @@ export const SKUBlueprint: React.FC = () => {
                 <h2 className="text-xl font-bold text-slate-900">{selectedSku.name}</h2>
                 <span className="bg-slate-100 text-slate-600 text-xs px-2 py-1 rounded font-mono">{selectedSku.code}</span>
               </div>
-              <p className="text-sm text-slate-500">Product Revision A.2 • Last Modified: 2025-12-10</p>
+              <div className="flex items-center gap-2 text-sm text-slate-500">
+                <GitCommit size={14} />
+                <span>Blueprint: {s1Context.activeRevision}</span>
+                <span className="text-slate-300">•</span>
+                <span>Signoff: {s1Context.engineeringSignoff}</span>
+              </div>
             </div>
             <div className="flex flex-col items-end">
               <button className="text-brand-600 text-sm font-medium hover:underline disabled:opacity-50 disabled:no-underline" disabled>
