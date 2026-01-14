@@ -13,8 +13,10 @@ import {
   FileCheck, 
   AlertTriangle,
   ArrowRight,
-  ShieldCheck
+  ShieldCheck,
+  ClipboardList
 } from 'lucide-react';
+import { getMockS13Context } from '../stages/s13/s13Contract';
 
 // Mock Data Types
 interface EolUnit {
@@ -62,6 +64,9 @@ export const RecyclingRecovery: React.FC = () => {
   const { role } = useContext(UserContext);
   const [selectedUnit, setSelectedUnit] = useState<EolUnit>(INTAKE_QUEUE[0]);
 
+  // Read-Only S13 Context
+  const s13Context = getMockS13Context();
+
   // RBAC Access Check
   const hasAccess = 
     role === UserRole.SYSTEM_ADMIN || 
@@ -108,9 +113,21 @@ export const RecyclingRecovery: React.FC = () => {
            </h1>
            <p className="text-slate-500 text-sm mt-1">End-of-Life (EOL) management, sorting, and material recovery processing (Track -> Trace Bridge).</p>
         </div>
-        <div className="flex items-center gap-2 bg-green-50 text-green-700 px-3 py-1 rounded border border-green-200 text-xs font-bold">
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex items-center gap-2 bg-green-50 text-green-700 px-3 py-1 rounded border border-green-200 text-xs font-bold">
              <Leaf size={14} />
              <span>SUSTAINABILITY TRACKING</span>
+          </div>
+          <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2 mt-1">
+            <ClipboardList size={10} />
+            <span>Requests: {s13Context.serviceRequestsOpenCount}</span>
+            <span className="text-slate-300">|</span>
+            <span>Returns: {s13Context.returnsInitiatedCount}</span>
+            <span className="text-slate-300">|</span>
+            <span className={`font-bold ${s13Context.serviceStatus === 'SERVICE_OPEN' ? 'text-blue-600' : 'text-slate-600'}`}>
+              S13: {s13Context.serviceStatus}
+            </span>
+          </div>
         </div>
       </div>
 
