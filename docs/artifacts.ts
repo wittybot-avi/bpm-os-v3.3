@@ -21,6 +21,12 @@ export const DOC_ARTIFACTS: DocArtifact[] = [
     path: "/docs/SYSTEM_CONTEXT.md" 
   },
   { 
+    id: "data-contract", 
+    title: "Screen Data Contract", 
+    tab: "Data Contract", 
+    path: "/docs/handover/SCREEN_DATA_CONTRACT.md" 
+  },
+  { 
     id: "rulebook", 
     title: "Rulebook", 
     tab: "Rulebook", 
