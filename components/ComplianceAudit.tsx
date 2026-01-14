@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import { UserContext, UserRole } from '../types';
 import { 
   ShieldAlert, 
@@ -15,8 +15,10 @@ import {
   Flag,
   Battery,
   Recycle,
-  Scale
+  Scale,
+  RefreshCcw
 } from 'lucide-react';
+import { getMockS14Context } from '../stages/s14/s14Contract';
 
 // Mock Data for Dashboard
 const KPI_DATA = {
@@ -42,6 +44,9 @@ const AUDIT_TRAIL = [
 
 export const ComplianceAudit: React.FC = () => {
   const { role } = useContext(UserContext);
+  
+  // S14 Context (Read-Only)
+  const [s14Context] = useState(getMockS14Context());
 
   // RBAC Access Check
   const hasAccess = 
@@ -85,15 +90,34 @@ export const ComplianceAudit: React.FC = () => {
            </h1>
            <p className="text-slate-500 text-sm mt-1">Regulatory oversight, digital passport status, and risk registry.</p>
         </div>
-        {!isAuditor && (
-          <button 
-            className="bg-white border border-slate-300 text-slate-600 px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 hover:bg-slate-50"
-            disabled
-          >
-            <Download size={16} />
-            <span>Export Audit Report</span>
-          </button>
-        )}
+        
+        <div className="flex flex-col items-end gap-2">
+          {/* S14 Context Read-Only Display */}
+          <div className="flex items-center gap-3 bg-slate-50 px-3 py-1.5 rounded border border-slate-200">
+             <div className="flex flex-col items-end">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Circular Status (S14)</span>
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                   <RefreshCcw size={12} className="text-brand-600" />
+                   {s14Context.circularStatus}
+                </div>
+             </div>
+             <div className="w-px h-6 bg-slate-200"></div>
+             <div className="flex flex-col items-end">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Refurbish Eligible</span>
+                <span className="text-xs font-mono font-bold text-green-600">{s14Context.packsEligibleForRefurbishCount} Units</span>
+             </div>
+          </div>
+
+          {!isAuditor && (
+            <button 
+              className="bg-white border border-slate-300 text-slate-600 px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 hover:bg-slate-50"
+              disabled
+            >
+              <Download size={16} />
+              <span>Export Audit Report</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Main Grid */}
