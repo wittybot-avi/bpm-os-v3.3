@@ -6,15 +6,18 @@ import {
   Package, 
   Barcode, 
   ClipboardCheck, 
-  ArrowRight,
-  Clock,
-  AlertTriangle,
-  CheckCircle2,
-  List
+  ArrowRight, 
+  Clock, 
+  AlertTriangle, 
+  CheckCircle2, 
+  List,
+  Database
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
 import { DisabledHint } from './DisabledHint';
+import { getMockS3Context, S3Context } from '../stages/s3/s3Contract';
+import { getS3ActionState, S3ActionId } from '../stages/s3/s3Guards';
 
 // Mock Data Types
 interface Shipment {
@@ -79,6 +82,13 @@ const MOCK_SERIALS: MockSerial[] = Array.from({ length: 15 }).map((_, i) => ({
 export const InboundReceipt: React.FC = () => {
   const { role } = useContext(UserContext);
   const [selectedShipment, setSelectedShipment] = useState<Shipment>(SHIPMENTS[0]);
+  
+  // S3 Context & Guards
+  const [s3Context] = useState<S3Context>(getMockS3Context());
+  const getAction = (action: S3ActionId) => getS3ActionState(role, s3Context, action);
+
+  const recordReceiptState = getAction('RECORD_RECEIPT');
+  const startSerializationState = getAction('START_SERIALIZATION');
 
   // RBAC Access Check
   const hasAccess = 
@@ -86,8 +96,6 @@ export const InboundReceipt: React.FC = () => {
     role === UserRole.STORES || 
     role === UserRole.SUPERVISOR || 
     role === UserRole.MANAGEMENT;
-
-  const isReadOnly = role === UserRole.MANAGEMENT;
 
   if (!hasAccess) {
     return (
@@ -113,18 +121,29 @@ export const InboundReceipt: React.FC = () => {
            </h1>
            <p className="text-slate-500 text-sm mt-1">Verify shipments, generate serials, and tag materials for QC.</p>
         </div>
-        {!isReadOnly && (
+        <div className="flex flex-col items-end gap-1">
           <div className="flex gap-3">
              <button 
-              className="bg-brand-600 text-white px-4 py-2 rounded-md font-medium text-sm opacity-50 cursor-not-allowed flex items-center gap-2"
-              disabled
-              title="Demo Mode: Backend not connected"
+              className="bg-brand-600 text-white px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400"
+              disabled={!recordReceiptState.enabled}
+              title={recordReceiptState.reason}
             >
               <Package size={16} />
               <span>Register New Arrival</span>
             </button>
           </div>
-        )}
+          {!recordReceiptState.enabled && (
+             <DisabledHint reason={recordReceiptState.reason || 'Blocked'} className="mt-1" />
+          )}
+          <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2 mt-1">
+            <Database size={10} /> 
+            <span>Pending: {s3Context.inboundShipmentCount}</span>
+            <span className="text-slate-300">|</span>
+            <span className={`font-bold ${s3Context.inboundStatus === 'AWAITING_RECEIPT' ? 'text-blue-600' : 'text-slate-600'}`}>
+              {s3Context.inboundStatus}
+            </span>
+          </div>
+        </div>
       </div>
 
       <StageStateBanner stageId="S3" />
@@ -225,13 +244,13 @@ export const InboundReceipt: React.FC = () => {
                  </div>
                  <div className="flex flex-col items-end justify-end">
                     <button 
-                      disabled 
-                      className="w-full bg-white border border-slate-300 text-slate-400 text-sm font-medium py-2 rounded shadow-sm opacity-60 cursor-not-allowed"
-                      title="Demo Mode"
+                      disabled={!recordReceiptState.enabled}
+                      className="w-full bg-white border border-slate-300 text-slate-700 text-sm font-medium py-2 rounded shadow-sm hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed"
+                      title={recordReceiptState.reason}
                     >
                       Update Count
                     </button>
-                    <DisabledHint reason="Demo Mode" nextActionHint="Backend Integration Required" />
+                    {!recordReceiptState.enabled && <DisabledHint reason={recordReceiptState.reason || 'Blocked'} className="mt-1" />}
                  </div>
                </div>
             </section>
@@ -243,22 +262,20 @@ export const InboundReceipt: React.FC = () => {
                     <Barcode size={16} className="text-brand-500" />
                     Serialization
                   </h3>
-                  {!isReadOnly && (
-                    <div className="flex flex-col items-end">
-                      <button 
-                        disabled
-                        className="text-xs bg-brand-600 text-white px-3 py-1.5 rounded opacity-50 cursor-not-allowed flex items-center gap-1"
-                        title="Demo Mode: Backend generation disabled"
-                      >
-                        <span>Generate Serials</span>
-                        <ArrowRight size={12} />
-                      </button>
-                      <DisabledHint reason="Receipt Pending" nextActionHint="Verify Quantity" />
-                    </div>
-                  )}
+                  <div className="flex flex-col items-end">
+                    <button 
+                      disabled={!startSerializationState.enabled}
+                      className="text-xs bg-brand-600 text-white px-3 py-1.5 rounded hover:bg-brand-700 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={startSerializationState.reason}
+                    >
+                      <span>Generate Serials</span>
+                      <ArrowRight size={12} />
+                    </button>
+                    {!startSerializationState.enabled && <DisabledHint reason={startSerializationState.reason || 'Blocked'} nextActionHint="Check Status" />}
+                  </div>
                </div>
                
-               {/* Serial List Visualization - Type A Empty State Applied */}
+               {/* Serial List Visualization */}
                <div className="max-h-64 overflow-y-auto bg-slate-100 p-4">
                   {selectedShipment.status === 'Pending' ? (
                     <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
