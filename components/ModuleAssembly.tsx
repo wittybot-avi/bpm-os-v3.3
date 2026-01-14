@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { UserContext, UserRole } from '../types';
+import { UserContext, UserRole, NavView } from '../types';
 import { 
   ShieldAlert, 
   Wrench, 
@@ -15,7 +15,9 @@ import {
   Database,
   ArrowRight,
   History,
-  CheckCircle2
+  CheckCircle2,
+  Radar,
+  ClipboardCheck
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
@@ -60,7 +62,11 @@ const TASKS: AssemblyTask[] = [
   { id: 6, label: 'Visual Inspection (Polarity Check)', required: true },
 ];
 
-export const ModuleAssembly: React.FC = () => {
+interface ModuleAssemblyProps {
+  onNavigate?: (view: NavView) => void;
+}
+
+export const ModuleAssembly: React.FC<ModuleAssemblyProps> = ({ onNavigate }) => {
   const { role } = useContext(UserContext);
   
   // S5 Context & Event State
@@ -181,6 +187,24 @@ export const ModuleAssembly: React.FC = () => {
     }, 1000);
   };
 
+  const handleNavToS6 = () => {
+    if (onNavigate) {
+      emitAuditEvent({
+        stageId: 'S5',
+        actionId: 'NAV_NEXT_STAGE',
+        actorRole: role,
+        message: 'Navigated to S6: Module QA from S5 Next Step panel'
+      });
+      onNavigate('module_qa');
+    }
+  };
+
+  const handleNavToControlTower = () => {
+    if (onNavigate) {
+      onNavigate('control_tower');
+    }
+  };
+
   // Pre-calculate action states
   // Station Controls
   const startState = getAction('START_ASSEMBLY');
@@ -195,6 +219,9 @@ export const ModuleAssembly: React.FC = () => {
   // Completion
   const completeState = getAction('COMPLETE_MODULE');
   const handoverState = getAction('HANDOVER_TO_QA');
+
+  // Next Step Readiness
+  const isReadyForNext = s5Context.assemblyStatus === 'COMPLETED';
 
   // RBAC Access Check
   const hasAccess = 
@@ -273,6 +300,43 @@ export const ModuleAssembly: React.FC = () => {
            </div>
         </div>
       )}
+
+      {/* Next Step Guidance Panel */}
+      <div className={`bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm animate-in slide-in-from-top-3 ${!onNavigate ? 'hidden' : ''}`}>
+        <div className="flex items-start gap-3">
+          <div className="p-2 bg-blue-100 rounded-full text-blue-600">
+            <ArrowRight size={20} />
+          </div>
+          <div>
+            <h3 className="font-bold text-blue-900 text-sm">Next Recommended Action</h3>
+            <p className="text-xs text-blue-700 mt-1 max-w-lg">
+              {isReadyForNext 
+                ? "Module assembly for this batch is complete. Proceed to Quality Assurance (S6) for final inspection." 
+                : "Batch assembly in progress. Complete all modules to unlock handover to QA."}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 w-full sm:w-auto">
+           <button 
+             onClick={handleNavToControlTower} 
+             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-blue-200 text-blue-700 rounded-md text-xs font-bold hover:bg-blue-100 transition-colors"
+           >
+             <Radar size={14} /> Control Tower
+           </button>
+           <div className="flex-1 sm:flex-none flex flex-col items-center">
+             <button 
+               onClick={handleNavToS6} 
+               disabled={!isReadyForNext}
+               className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-xs font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+             >
+               <ClipboardCheck size={14} /> Go to S6: Module QA
+             </button>
+             {!isReadyForNext && (
+                <span className="text-[9px] text-red-500 mt-1 font-medium">Batch Not Completed</span>
+             )}
+           </div>
+        </div>
+      </div>
 
       {/* Active Batch Banner */}
       <div className="bg-slate-900 text-white rounded-lg p-6 shadow-md shrink-0 border border-slate-700">
