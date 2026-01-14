@@ -27,6 +27,12 @@ export const DOC_ARTIFACTS: DocArtifact[] = [
     path: "/docs/handover/SCREEN_DATA_CONTRACT.md" 
   },
   { 
+    id: "rbac-matrix", 
+    title: "RBAC Action Matrix", 
+    tab: "RBAC Matrix", 
+    path: "/docs/handover/RBAC_ACTION_MATRIX.md" 
+  },
+  { 
     id: "rulebook", 
     title: "Rulebook", 
     tab: "Rulebook", 
