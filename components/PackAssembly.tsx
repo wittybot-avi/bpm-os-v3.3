@@ -17,7 +17,8 @@ import {
   XCircle,
   History,
   Radar,
-  ArrowRight
+  ArrowRight,
+  FileCheck
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
@@ -191,6 +192,18 @@ export const PackAssembly: React.FC<PackAssemblyProps> = ({ onNavigate }) => {
     }
   };
 
+  const handleNavToS8 = () => {
+    if (onNavigate) {
+      emitAuditEvent({
+        stageId: 'S7',
+        actionId: 'NAV_NEXT_STAGE',
+        actorRole: role,
+        message: 'Navigated to S8 (Pack Review & Aging) from S7 Next Step panel'
+      });
+      onNavigate('pack_review');
+    }
+  };
+
   // Pre-calculate action states
   const startState = getAction('START_ASSEMBLY');
   const pauseState = getAction('PAUSE_ASSEMBLY');
@@ -203,6 +216,9 @@ export const PackAssembly: React.FC<PackAssemblyProps> = ({ onNavigate }) => {
   const isPaused = s7Context.assemblyStatus === 'PAUSED';
   const playAction = isPaused ? resumeState : startState;
   const playHandler = isPaused ? handleResumeAssembly : handleStartAssembly;
+
+  // Navigation Condition: At least one pack completed or context state is COMPLETED
+  const isReadyForNext = s7Context.packsCompletedCount > 0;
 
   // RBAC Access Check
   const hasAccess = 
@@ -285,9 +301,9 @@ export const PackAssembly: React.FC<PackAssemblyProps> = ({ onNavigate }) => {
           <div>
             <h3 className="font-bold text-blue-900 text-sm">Next Recommended Action</h3>
             <p className="text-xs text-blue-700 mt-1 max-w-lg">
-              {s7Context.packsCompletedCount >= 1
-                ? "Packs assembled. Proceed to Pack Review (S8) for final EOL validation." 
-                : "Line operational. Complete assembly tasks to generate output."}
+              {isReadyForNext
+                ? "Assembly verified. Proceed to Aging & Soak (S8) for final EOL validation." 
+                : "Line operational. Complete assembly tasks to enable downstream flow."}
             </p>
           </div>
         </div>
@@ -298,6 +314,18 @@ export const PackAssembly: React.FC<PackAssemblyProps> = ({ onNavigate }) => {
            >
              <Radar size={14} /> Control Tower
            </button>
+           <div className="flex-1 sm:flex-none flex flex-col items-center">
+             <button 
+               onClick={handleNavToS8} 
+               disabled={!isReadyForNext}
+               className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-xs font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+             >
+               <FileCheck size={14} /> Go to S8: Aging & Soak
+             </button>
+             {!isReadyForNext && (
+                <span className="text-[9px] text-red-500 mt-1 font-medium">Complete at least 1 Pack</span>
+             )}
+           </div>
         </div>
       </div>
 

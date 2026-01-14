@@ -133,3 +133,4 @@ TEMPLATE:
 | **V33-S7-BP-01** | S7 Stage Contract Stub | 2026-01-16 09:15 (IST) | Added S7 Pack Assembly context contract + mock data scaffold; S7 screen reads it (read-only). | No |
 | **V33-S7-FP-02** | S7 State Guard by Role | 2026-01-16 09:30 (IST) | Added S7 role/status UI guards with blocked reasons; no workflow change. | No |
 | **V33-S7-PP-03** | S7 Simulated Actions | 2026-01-16 09:45 (IST) | S7 actions simulate Pack Assembly lifecycle; audit events emitted (frontend-only). | Yes |
+| **V33-S7-PP-04** | S7 Workflow Navigation Wiring | 2026-01-16 10:00 (IST) | Added S7 Next Step navigation panel guiding flow to S8 Aging & Soak. | Yes |
