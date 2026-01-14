@@ -15,10 +15,12 @@ import {
   Globe,
   FileBadge,
   Archive,
-  Scale
+  Scale,
+  ClipboardList
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
+import { getMockS11Context } from '../stages/s11/s11Contract';
 
 // Mock Data Types
 interface InventoryItem {
@@ -88,6 +90,9 @@ export const FinishedGoods: React.FC = () => {
   const { role } = useContext(UserContext);
   const [selectedItem, setSelectedItem] = useState<InventoryItem>(INVENTORY[0]);
 
+  // Read-only S11 Context
+  const s11Context = getMockS11Context();
+
   // RBAC Access Check
   const hasAccess = 
     role === UserRole.SYSTEM_ADMIN || 
@@ -121,9 +126,19 @@ export const FinishedGoods: React.FC = () => {
            </h1>
            <p className="text-slate-500 text-sm mt-1">Manage warehouse stock, storage locations, and dispatch readiness.</p>
         </div>
-        <div className="flex items-center gap-2 bg-slate-100 px-3 py-1 rounded text-xs font-mono text-slate-600 border border-slate-200">
-             <Archive size={14} className="text-slate-500" />
-             <span>WAREHOUSE: ONLINE</span>
+        <div className="flex flex-col items-end gap-1">
+          <div className={`flex items-center gap-2 px-3 py-1 rounded text-xs font-mono border ${s11Context.warehouseStatus === 'OPERATIONAL' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+               <Archive size={14} />
+               <span>WH: {s11Context.warehouseStatus}</span>
+          </div>
+          <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2 mt-1">
+            <ClipboardList size={10} />
+            <span>Ready: {s11Context.stockReadyCount}</span>
+            <span className="text-slate-300">|</span>
+            <span>Reserved: {s11Context.stockReservedCount}</span>
+            <span className="text-slate-300">|</span>
+            <span className="text-blue-600">Disp: {s11Context.totalDispatchedCount}</span>
+          </div>
         </div>
       </div>
 
