@@ -75,7 +75,7 @@ const App: React.FC = () => {
           {currentView === 'inbound_receipt' && <InboundReceipt onNavigate={setCurrentView} />}
           {currentView === 'batch_planning' && <BatchPlanning onNavigate={setCurrentView} />}
           {currentView === 'module_assembly' && <ModuleAssembly onNavigate={setCurrentView} />}
-          {currentView === 'module_qa' && <ModuleQA />}
+          {currentView === 'module_qa' && <ModuleQA onNavigate={setCurrentView} />}
           {currentView === 'pack_assembly' && <PackAssembly />}
           {currentView === 'pack_review' && <PackReview />}
           {currentView === 'battery_registry' && <BatteryRegistry />}

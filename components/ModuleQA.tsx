@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { UserContext, UserRole } from '../types';
+import { UserContext, UserRole, NavView } from '../types';
 import { 
   ShieldAlert, 
   ClipboardCheck, 
@@ -15,7 +15,10 @@ import {
   Database,
   Activity,
   History,
-  CheckCircle2
+  CheckCircle2,
+  ArrowRight,
+  Radar,
+  Battery
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
@@ -84,7 +87,11 @@ const INSPECTION_CHECKLIST: InspectionItem[] = [
   { id: 'chk-m1', category: 'Mechanical', label: 'Module Dimensions (L)', spec: '350mm +/- 1mm', status: 'Pending' },
 ];
 
-export const ModuleQA: React.FC = () => {
+interface ModuleQAProps {
+  onNavigate?: (view: NavView) => void;
+}
+
+export const ModuleQA: React.FC<ModuleQAProps> = ({ onNavigate }) => {
   const { role } = useContext(UserContext);
   const [selectedModule, setSelectedModule] = useState<QAModule>(QA_QUEUE[0]);
   const [notes, setNotes] = useState('');
@@ -203,12 +210,36 @@ export const ModuleQA: React.FC = () => {
     }, 800);
   };
 
+  // Navigation Handlers
+  const handleNavToS7 = () => {
+    if (onNavigate) {
+      emitAuditEvent({
+        stageId: 'S6',
+        actionId: 'NAV_NEXT_STAGE',
+        actorRole: role,
+        message: 'Navigated to S7: Pack Assembly from S6 Next Step panel'
+      });
+      onNavigate('pack_assembly');
+    }
+  };
+
+  const handleNavToControlTower = () => {
+    if (onNavigate) {
+      onNavigate('control_tower');
+    }
+  };
+
   // Calculate Action States
   const startSessionState = getAction('START_SESSION');
   const logObservationState = getAction('LOG_OBSERVATION');
   const submitPassState = getAction('SUBMIT_PASS');
   const submitReworkState = getAction('SUBMIT_REWORK');
   const submitRejectState = getAction('SUBMIT_REJECT');
+
+  // Logic for Next Step (Readiness)
+  // Allow navigation if inspection is not active (IDLE) or we have cleared items.
+  // Stricter: if inspecting, block navigation to focus user.
+  const isReadyForNext = s6Context.qaStatus === 'IDLE';
 
   // RBAC Access Check
   const hasAccess = 
@@ -282,6 +313,43 @@ export const ModuleQA: React.FC = () => {
            </div>
         </div>
       )}
+
+      {/* Next Step Guidance Panel */}
+      <div className={`bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm animate-in slide-in-from-top-3 ${!onNavigate ? 'hidden' : ''}`}>
+        <div className="flex items-start gap-3">
+          <div className="p-2 bg-blue-100 rounded-full text-blue-600">
+            <ArrowRight size={20} />
+          </div>
+          <div>
+            <h3 className="font-bold text-blue-900 text-sm">Next Recommended Action</h3>
+            <p className="text-xs text-blue-700 mt-1 max-w-lg">
+              {isReadyForNext 
+                ? "Modules cleared. Proceed to Pack Assembly (S7) to integrate modules into packs." 
+                : "Inspection in progress. Complete current QA session before proceeding."}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 w-full sm:w-auto">
+           <button 
+             onClick={handleNavToControlTower} 
+             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-blue-200 text-blue-700 rounded-md text-xs font-bold hover:bg-blue-100 transition-colors"
+           >
+             <Radar size={14} /> Control Tower
+           </button>
+           <div className="flex-1 sm:flex-none flex flex-col items-center">
+             <button 
+               onClick={handleNavToS7} 
+               disabled={!isReadyForNext}
+               className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-xs font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+             >
+               <Battery size={14} /> Go to S7: Pack Assembly
+             </button>
+             {!isReadyForNext && (
+                <span className="text-[9px] text-red-500 mt-1 font-medium">Finish Inspection</span>
+             )}
+           </div>
+        </div>
+      </div>
 
       {/* Main Grid */}
       <div className={`flex-1 grid grid-cols-12 gap-6 min-h-0 ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>
