@@ -15,6 +15,7 @@ import {
   Radio
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
+import { PreconditionsPanel } from './PreconditionsPanel';
 
 // Mock Data Types
 interface ProvisioningPack {
@@ -99,6 +100,7 @@ export const BMSProvisioning: React.FC = () => {
       </div>
 
       <StageStateBanner stageId="S10" />
+      <PreconditionsPanel stageId="S10" />
 
       {/* Main Grid */}
       <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">

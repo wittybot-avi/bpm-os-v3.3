@@ -15,6 +15,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
+import { PreconditionsPanel } from './PreconditionsPanel';
 
 // Mock Data Types
 interface AuthorizedUnit {
@@ -109,6 +110,7 @@ export const DispatchExecution: React.FC = () => {
       </div>
 
       <StageStateBanner stageId="S14" />
+      <PreconditionsPanel stageId="S14" />
 
       {/* Main Grid */}
       <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">

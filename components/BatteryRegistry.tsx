@@ -23,6 +23,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
+import { PreconditionsPanel } from './PreconditionsPanel';
 
 // Mock Data Types
 interface RegistryPack {
@@ -202,6 +203,7 @@ export const BatteryRegistry: React.FC = () => {
       </div>
 
       <StageStateBanner stageId="S9" />
+      <PreconditionsPanel stageId="S9" />
 
       {/* Main Grid */}
       <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">

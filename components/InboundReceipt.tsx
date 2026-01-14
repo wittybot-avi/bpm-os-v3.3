@@ -13,6 +13,7 @@ import {
   List
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
+import { PreconditionsPanel } from './PreconditionsPanel';
 
 // Mock Data Types
 interface Shipment {
@@ -126,6 +127,7 @@ export const InboundReceipt: React.FC = () => {
       </div>
 
       <StageStateBanner stageId="S3" />
+      <PreconditionsPanel stageId="S3" />
 
       {/* Main Grid */}
       <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">

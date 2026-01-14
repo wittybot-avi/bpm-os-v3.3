@@ -14,6 +14,7 @@ import {
   FileText
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
+import { PreconditionsPanel } from './PreconditionsPanel';
 
 // Mock Data Types
 interface QAModule {
@@ -116,6 +117,7 @@ export const ModuleQA: React.FC = () => {
       </div>
 
       <StageStateBanner stageId="S6" />
+      <PreconditionsPanel stageId="S6" />
 
       {/* Main Grid */}
       <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">

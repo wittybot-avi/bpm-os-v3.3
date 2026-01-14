@@ -9,15 +9,16 @@ import {
   Thermometer, 
   Zap, 
   AlertTriangle, 
-  Calendar, 
   History, 
   FileWarning, 
   Wrench,
   CheckCircle2,
   Signal,
-  ShieldCheck
+  ShieldCheck,
+  User
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
+import { PreconditionsPanel } from './PreconditionsPanel';
 
 // Mock Data Types
 interface DeployedPack {
@@ -57,7 +58,7 @@ const DEPLOYED_FLEET: DeployedPack[] = [
     warrantyEnd: '2028-11-15',
     telemetry: { soc: 85, soh: 98, temp: 32, alerts: 0 },
     history: [
-      { id: 'evt-1', date: '2025-11-20', type: 'Installation', description: 'Pack commissioned at Hub A', technician: 'S. Rao' }
+      { id: 'evt-1', date: '2025-11-20', type: 'Installation', description: 'Pack commissioned at hub', technician: 'Field Eng. A' }
     ]
   },
   {
@@ -65,27 +66,26 @@ const DEPLOYED_FLEET: DeployedPack[] = [
     packId: 'PCK-2025-010-092',
     sku: 'BP-NMC-800V-75K',
     customer: 'CityBus Metro',
-    deploymentDate: '2025-08-01',
+    deploymentDate: '2025-10-01',
     warrantyStatus: 'Claim Raised',
-    warrantyEnd: '2030-08-01',
-    telemetry: { soc: 42, soh: 91, temp: 45, alerts: 2 },
+    warrantyEnd: '2030-10-01',
+    telemetry: { soc: 45, soh: 92, temp: 58, alerts: 2 },
     history: [
-      { id: 'evt-2', date: '2026-01-10', type: 'Alert', description: 'Over-temperature warning triggered', technician: 'System' },
-      { id: 'evt-3', date: '2025-08-05', type: 'Installation', description: 'Bus #402 integration', technician: 'M. Khan' }
+      { id: 'evt-1', date: '2025-10-05', type: 'Installation', description: 'Pack commissioned', technician: 'Field Eng. B' },
+      { id: 'evt-2', date: '2026-01-12', type: 'Alert', description: 'Over-temperature threshold exceeded', technician: 'System (Auto)' }
     ]
   },
   {
     id: 'dep-003',
-    packId: 'PCK-2024-001-001',
+    packId: 'PCK-2024-005-011',
     sku: 'BP-LFP-48V-2.5K',
-    customer: 'EcoRide Logistics',
-    deploymentDate: '2024-02-10',
+    customer: 'Private Fleet B',
+    deploymentDate: '2024-05-20',
     warrantyStatus: 'Expired',
-    warrantyEnd: '2026-01-01', // Expired just recently for demo
-    telemetry: { soc: 12, soh: 78, temp: 28, alerts: 0 },
+    warrantyEnd: '2025-05-20',
+    telemetry: { soc: 12, soh: 88, temp: 28, alerts: 0 },
     history: [
-      { id: 'evt-4', date: '2025-06-15', type: 'Maintenance', description: 'Annual health check - OK', technician: 'S. Rao' },
-      { id: 'evt-5', date: '2024-02-15', type: 'Installation', description: 'Fleet deployment', technician: 'A. Singh' }
+      { id: 'evt-1', date: '2024-05-22', type: 'Installation', description: 'Pack commissioned', technician: 'Field Eng. A' }
     ]
   }
 ];
@@ -98,12 +98,10 @@ export const ServiceWarranty: React.FC = () => {
   const hasAccess = 
     role === UserRole.SYSTEM_ADMIN || 
     role === UserRole.SERVICE || 
-    role === UserRole.MANAGEMENT;
+    role === UserRole.MANAGEMENT || 
+    role === UserRole.QA_ENGINEER;
 
   const isAuditor = role === UserRole.MANAGEMENT;
-  // Management (Auditor) is read-only.
-  // Service Engineer is read-write but locked in backend-demo mode.
-  const isReadOnly = isAuditor; 
 
   if (!hasAccess) {
     return (
@@ -136,73 +134,80 @@ export const ServiceWarranty: React.FC = () => {
              <LifeBuoy className="text-brand-600" size={24} />
              Service & Warranty (S15)
            </h1>
-           <p className="text-slate-500 text-sm mt-1">Field diagnostics, warranty entitlement checks, and service logs.</p>
+           <p className="text-slate-500 text-sm mt-1">Field asset monitoring, warranty claims, and service triage.</p>
         </div>
         <div className="flex items-center gap-2 bg-slate-100 px-3 py-1 rounded text-xs font-mono text-slate-600 border border-slate-200">
              <Signal size={14} className="text-green-500" />
-             <span>TELEMETRY FEED: LIVE</span>
+             <span>IOT TELEMETRY: ONLINE</span>
         </div>
       </div>
 
       <StageStateBanner stageId="S15" />
+      <PreconditionsPanel stageId="S15" />
 
       {/* Main Grid */}
       <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
         
-        {/* Left Col: Fleet Search */}
+        {/* Left Col: Fleet List */}
         <div className="col-span-4 bg-white rounded-lg shadow-sm border border-industrial-border flex flex-col overflow-hidden">
           <div className="p-4 border-b border-slate-100 bg-slate-50">
-             <h3 className="font-semibold text-slate-700 flex items-center gap-2">
-               <Search size={16} />
-               Fleet Search
-             </h3>
-             <span className="text-xs text-slate-400">Deployed Assets</span>
-          </div>
-          <div className="p-3 border-b border-slate-100">
+             <div className="flex justify-between items-center mb-2">
+                <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+                  <Battery size={16} />
+                  Deployed Fleet
+                </h3>
+             </div>
              <div className="relative">
                 <input 
                   type="text" 
-                  placeholder="Scan Pack ID..." 
+                  placeholder="Search Pack ID or Customer..." 
                   className="w-full text-sm border border-slate-300 rounded px-3 py-2 pl-9 focus:outline-none focus:border-brand-500"
-                  disabled={isReadOnly}
+                  disabled={isAuditor}
                 />
                 <Search size={14} className="absolute left-3 top-3 text-slate-400" />
              </div>
           </div>
-          <div className="overflow-y-auto flex-1 p-2 space-y-2">
-            {DEPLOYED_FLEET.map((pack) => (
-              <div 
-                key={pack.id} 
-                onClick={() => setSelectedPack(pack)}
-                className={`p-3 rounded-md cursor-pointer border transition-all ${
-                  selectedPack.id === pack.id 
-                    ? 'bg-brand-50 border-brand-200 shadow-sm' 
-                    : 'bg-white border-transparent hover:bg-slate-50 hover:border-slate-200'
-                }`}
-              >
-                <div className="flex justify-between items-start mb-1">
-                  <span className="font-bold text-slate-800 text-sm">{pack.packId}</span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
-                    pack.warrantyStatus === 'Active' ? 'bg-green-100 text-green-700' :
-                    pack.warrantyStatus === 'Claim Raised' ? 'bg-red-100 text-red-700' :
-                    'bg-slate-100 text-slate-600'
-                  }`}>
-                    {pack.warrantyStatus}
-                  </span>
-                </div>
-                <div className="text-xs text-slate-500 mb-2">{pack.customer}</div>
-                <div className="flex items-center gap-3 text-[10px] text-slate-400">
-                   <span className="flex items-center gap-1">
-                      <Signal size={10} className={pack.telemetry.alerts > 0 ? 'text-red-500' : 'text-green-500'} />
-                      SOH: {pack.telemetry.soh}%
-                   </span>
-                </div>
-              </div>
-            ))}
+          
+          <div className="overflow-y-auto flex-1 p-0">
+             <table className="w-full text-sm text-left">
+               <thead className="bg-slate-50 text-slate-500 border-b border-slate-200 sticky top-0 z-10">
+                 <tr>
+                   <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider">Pack ID</th>
+                   <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider">Customer</th>
+                   <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider">Status</th>
+                 </tr>
+               </thead>
+               <tbody className="divide-y divide-slate-100">
+                 {DEPLOYED_FLEET.map((pack) => (
+                   <tr 
+                     key={pack.id}
+                     onClick={() => setSelectedPack(pack)}
+                     className={`cursor-pointer transition-colors ${
+                       selectedPack.id === pack.id ? 'bg-brand-50' : 'hover:bg-slate-50'
+                     }`}
+                   >
+                     <td className="px-4 py-3 align-top">
+                       <div className="font-bold text-slate-800">{pack.packId}</div>
+                       <div className="text-[10px] text-slate-400 mt-0.5">{pack.sku}</div>
+                     </td>
+                     <td className="px-4 py-3 text-slate-600 align-top text-xs">{pack.customer}</td>
+                     <td className="px-4 py-3 align-top">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                          pack.warrantyStatus === 'Active' ? 'bg-green-100 text-green-700' :
+                          pack.warrantyStatus === 'Claim Raised' ? 'bg-red-100 text-red-700' :
+                          'bg-slate-100 text-slate-500'
+                        }`}>
+                          {pack.warrantyStatus === 'Claim Raised' ? 'Claim' : pack.warrantyStatus}
+                        </span>
+                     </td>
+                   </tr>
+                 ))}
+               </tbody>
+             </table>
           </div>
         </div>
 
-        {/* Right Col: Diagnostics Dashboard */}
+        {/* Right Col: Asset Detail */}
         <div className="col-span-8 bg-white rounded-lg shadow-sm border border-industrial-border flex flex-col overflow-hidden">
           {/* Detail Header */}
           <div className="p-6 border-b border-slate-100 flex justify-between items-start">
@@ -213,7 +218,7 @@ export const ServiceWarranty: React.FC = () => {
                 </div>
                 <div>
                     <h2 className="text-xl font-bold text-slate-900">{selectedPack.packId}</h2>
-                    <p className="text-xs text-slate-500 font-mono">Customer: {selectedPack.customer}</p>
+                    <p className="text-xs text-slate-500 font-mono">Deployed: {selectedPack.deploymentDate}</p>
                 </div>
               </div>
             </div>
@@ -223,9 +228,9 @@ export const ServiceWarranty: React.FC = () => {
                     selectedPack.warrantyStatus === 'Active' ? 'text-green-600' :
                     selectedPack.warrantyStatus === 'Claim Raised' ? 'text-red-600' : 'text-slate-600'
                 }`}>
-                    {selectedPack.warrantyStatus.toUpperCase()}
+                    {selectedPack.warrantyStatus}
                 </div>
-                <div className="text-xs text-slate-400">Ends: {selectedPack.warrantyEnd}</div>
+                <div className="text-[10px] text-slate-400">Ends: {selectedPack.warrantyEnd}</div>
             </div>
           </div>
 
@@ -235,44 +240,27 @@ export const ServiceWarranty: React.FC = () => {
             <section className="bg-slate-50 rounded-lg p-4 border border-slate-200">
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2">
                     <Zap size={16} className="text-brand-500" />
-                    Live Telemetry Snapshot
+                    Live Telemetry (IoT)
                 </h3>
                 <div className="grid grid-cols-4 gap-4 text-center">
                    <div className="p-3 bg-white border border-slate-100 rounded">
-                      <div className="text-xs text-slate-500 mb-1">State of Charge</div>
-                      <div className="text-2xl font-bold text-slate-800 flex justify-center items-end gap-1">
-                          {selectedPack.telemetry.soc}<span className="text-sm text-slate-400 mb-1">%</span>
-                      </div>
-                      <div className="w-full bg-slate-200 h-1.5 rounded-full mt-2 overflow-hidden">
-                          <div className="bg-green-500 h-full" style={{ width: `${selectedPack.telemetry.soc}%` }}></div>
+                      <div className="text-xs text-slate-500 uppercase mb-1">State of Charge</div>
+                      <div className={`text-xl font-bold ${selectedPack.telemetry.soc < 20 ? 'text-red-600' : 'text-green-600'}`}>{selectedPack.telemetry.soc}%</div>
+                   </div>
+                   <div className="p-3 bg-white border border-slate-100 rounded">
+                      <div className="text-xs text-slate-500 uppercase mb-1">State of Health</div>
+                      <div className="text-xl font-bold text-blue-600">{selectedPack.telemetry.soh}%</div>
+                   </div>
+                   <div className="p-3 bg-white border border-slate-100 rounded">
+                      <div className="text-xs text-slate-500 uppercase mb-1">Temperature</div>
+                      <div className={`text-xl font-bold flex items-center justify-center gap-1 ${selectedPack.telemetry.temp > 45 ? 'text-red-600' : 'text-slate-700'}`}>
+                         {selectedPack.telemetry.temp}°C
+                         {selectedPack.telemetry.temp > 45 && <Thermometer size={14} />}
                       </div>
                    </div>
                    <div className="p-3 bg-white border border-slate-100 rounded">
-                      <div className="text-xs text-slate-500 mb-1">State of Health</div>
-                      <div className="text-2xl font-bold text-slate-800 flex justify-center items-end gap-1">
-                          {selectedPack.telemetry.soh}<span className="text-sm text-slate-400 mb-1">%</span>
-                      </div>
-                      <div className="w-full bg-slate-200 h-1.5 rounded-full mt-2 overflow-hidden">
-                          <div className={`h-full ${selectedPack.telemetry.soh > 90 ? 'bg-green-500' : 'bg-amber-500'}`} style={{ width: `${selectedPack.telemetry.soh}%` }}></div>
-                      </div>
-                   </div>
-                   <div className="p-3 bg-white border border-slate-100 rounded">
-                      <div className="text-xs text-slate-500 mb-1">Max Temp</div>
-                      <div className="text-2xl font-bold text-slate-800 flex justify-center items-end gap-1">
-                          {selectedPack.telemetry.temp}<span className="text-sm text-slate-400 mb-1">°C</span>
-                      </div>
-                      <div className="mt-2 text-[10px] text-slate-400 flex justify-center items-center gap-1">
-                          <Thermometer size={10} /> Normal
-                      </div>
-                   </div>
-                   <div className="p-3 bg-white border border-slate-100 rounded">
-                      <div className="text-xs text-slate-500 mb-1">Active Alerts</div>
-                      <div className={`text-2xl font-bold flex justify-center items-end gap-1 ${selectedPack.telemetry.alerts > 0 ? 'text-red-600' : 'text-slate-300'}`}>
-                          {selectedPack.telemetry.alerts}
-                      </div>
-                      <div className="mt-2 text-[10px] text-slate-400">
-                          {selectedPack.telemetry.alerts > 0 ? 'Critical' : 'None'}
-                      </div>
+                      <div className="text-xs text-slate-500 uppercase mb-1">Active Alerts</div>
+                      <div className={`text-xl font-bold ${selectedPack.telemetry.alerts > 0 ? 'text-red-600' : 'text-slate-300'}`}>{selectedPack.telemetry.alerts}</div>
                    </div>
                 </div>
             </section>
@@ -281,50 +269,57 @@ export const ServiceWarranty: React.FC = () => {
             <section>
               <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2">
                 <History size={16} className="text-brand-500" />
-                Service Event Log
+                Service History
               </h3>
               <div className="space-y-3">
-                  {selectedPack.history.map((evt) => (
-                      <div key={evt.id} className="flex gap-4 p-3 border border-slate-100 rounded hover:bg-slate-50 transition-colors">
-                          <div className="flex flex-col items-center justify-center w-12 text-slate-400 border-r border-slate-100 pr-4">
-                              <Calendar size={16} className="mb-1" />
-                              <span className="text-[10px] text-center leading-tight">{evt.date}</span>
-                          </div>
-                          <div className="flex-1">
-                              <div className="flex justify-between items-start">
-                                  <span className="font-bold text-slate-700 text-sm">{evt.type}</span>
-                                  <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500">{evt.id}</span>
-                              </div>
-                              <p className="text-xs text-slate-600 mt-1">{evt.description}</p>
-                              <div className="flex items-center gap-1 mt-2 text-[10px] text-slate-400">
-                                  <Wrench size={10} />
-                                  Tech: {evt.technician}
-                              </div>
-                          </div>
-                      </div>
-                  ))}
+                 {selectedPack.history.map((evt) => (
+                    <div key={evt.id} className="flex gap-4 p-3 border border-slate-100 rounded hover:bg-slate-50">
+                        <div className="flex flex-col items-center min-w-[80px]">
+                            <span className="text-xs font-bold text-slate-700">{evt.date}</span>
+                            <span className="text-[10px] text-slate-400 uppercase">{evt.type}</span>
+                        </div>
+                        <div className="w-px bg-slate-200"></div>
+                        <div className="flex-1">
+                            <div className="text-sm text-slate-800">{evt.description}</div>
+                            <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                                <User size={10} /> {evt.technician}
+                            </div>
+                        </div>
+                    </div>
+                 ))}
               </div>
             </section>
 
              {/* 3. Actions */}
             <section className="pt-4 border-t border-slate-100">
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <Wrench size={16} className="text-brand-500" />
+                    Service Actions
+                </h3>
                 <div className="flex gap-4">
                     <button 
-                        disabled={isReadOnly} 
-                        className="flex-1 bg-white border border-slate-300 text-slate-500 py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 opacity-60 cursor-not-allowed hover:bg-slate-50"
+                        disabled 
+                        className="flex-1 bg-white border border-slate-300 text-slate-500 py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 opacity-60 cursor-not-allowed"
                         title="Demo Mode: Backend locked"
                     >
                         <FileWarning size={16} />
-                        Raise Ticket
+                        Raise Incident
                     </button>
-                    
                     <button 
-                        disabled={isReadOnly} 
-                        className="flex-1 bg-brand-600 text-white py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 opacity-50 cursor-not-allowed shadow-sm hover:bg-brand-700"
+                        disabled 
+                        className="flex-1 bg-white border border-slate-300 text-slate-500 py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 opacity-60 cursor-not-allowed"
+                        title="Demo Mode: Backend locked"
+                    >
+                        <AlertTriangle size={16} />
+                        Void Warranty
+                    </button>
+                    <button 
+                        disabled 
+                        className="flex-1 bg-brand-600 text-white py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 opacity-50 cursor-not-allowed shadow-sm"
                         title="Demo Mode: Backend locked"
                     >
                         <CheckCircle2 size={16} />
-                        Validate Warranty
+                        Close Ticket
                     </button>
                 </div>
                  <p className="text-center text-xs text-slate-400 mt-3">

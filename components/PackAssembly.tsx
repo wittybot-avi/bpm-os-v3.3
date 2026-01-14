@@ -15,6 +15,7 @@ import {
   Cpu
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
+import { PreconditionsPanel } from './PreconditionsPanel';
 
 // Mock Data Types
 interface ActivePackBatch {
@@ -102,6 +103,7 @@ export const PackAssembly: React.FC = () => {
       </div>
 
       <StageStateBanner stageId="S7" />
+      <PreconditionsPanel stageId="S7" />
 
       {/* Active Batch Banner */}
       <div className="bg-slate-900 text-white rounded-lg p-6 shadow-md shrink-0 border border-slate-700 relative overflow-hidden">

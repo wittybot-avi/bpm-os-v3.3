@@ -17,6 +17,7 @@ import {
   CheckSquare
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
+import { PreconditionsPanel } from './PreconditionsPanel';
 
 // Mock Data Types
 interface UnpackedItem {
@@ -101,6 +102,7 @@ export const PackagingAggregation: React.FC = () => {
       </div>
 
       <StageStateBanner stageId="S12" />
+      <PreconditionsPanel stageId="S12" />
 
       {/* Main Grid */}
       <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
