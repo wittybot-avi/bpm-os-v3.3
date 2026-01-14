@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
+import { UserContext, UserRole } from '../types';
 import { 
   BarChart2, 
   FileText, 
@@ -10,9 +11,16 @@ import {
   PieChart,
   TrendingUp,
   Layers,
-  Leaf
+  Leaf,
+  RefreshCw,
+  Search,
+  CheckSquare,
+  Send,
+  Lock
 } from 'lucide-react';
 import { getMockS15Context } from '../stages/s15/s15Contract';
+import { getS15ActionState, S15ActionId } from '../stages/s15/s15Guards';
+import { DisabledHint } from './DisabledHint';
 
 interface ReportTile {
   id: string;
@@ -133,10 +141,19 @@ const REPORTS: ReportTile[] = [
 ];
 
 export const SystemReports: React.FC = () => {
+  const { role } = useContext(UserContext);
   const [selectedReport, setSelectedReport] = useState<ReportTile | null>(null);
   
-  // S15 Context (Read-Only)
+  // S15 Context (Read-Only Mock for now, used for guards)
   const [s15Context] = useState(getMockS15Context());
+
+  // Action Helper
+  const getAction = (actionId: S15ActionId) => getS15ActionState(role, s15Context, actionId);
+
+  const generateState = getAction('GENERATE_SNAPSHOT');
+  const requestEvidenceState = getAction('REQUEST_MISSING_EVIDENCE');
+  const markCollectedState = getAction('MARK_EVIDENCE_COLLECTED');
+  const submitReportState = getAction('SUBMIT_COMPLIANCE_REPORT');
 
   return (
     <div className="space-y-6 h-full flex flex-col animate-in fade-in duration-300 relative">
@@ -149,7 +166,7 @@ export const SystemReports: React.FC = () => {
            </div>
            <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
              <FileText className="text-brand-600" size={24} />
-             System Reports (S15)
+             System Reports & Compliance (S15)
            </h1>
            <p className="text-slate-500 text-sm mt-1">Generated analytics, compliance reporting, and ESG metrics.</p>
         </div>
@@ -176,6 +193,71 @@ export const SystemReports: React.FC = () => {
              <span className="font-bold text-slate-600">{s15Context.carbonFootprintKgCo2e} kg CO2e</span>
           </div>
         </div>
+      </div>
+
+      {/* Compliance Operations Toolbar */}
+      <div className="bg-white p-4 rounded-lg shadow-sm border border-industrial-border flex flex-wrap items-center gap-4 transition-all">
+         <div className="flex items-center gap-3 mr-auto">
+            <div className="p-2 bg-slate-100 text-slate-600 rounded border border-slate-200">
+               <ShieldCheck size={20} />
+            </div>
+            <div>
+               <h3 className="font-bold text-slate-800 text-sm">Compliance Operations</h3>
+               <p className="text-xs text-slate-500">ESG & Regulatory Workflow</p>
+            </div>
+         </div>
+
+         {/* Generate Snapshot */}
+         <div className="flex flex-col items-center">
+            <button 
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-bold transition-colors"
+                disabled={!generateState.enabled}
+                title={generateState.reason}
+            >
+                <RefreshCw size={14} /> Generate Snapshot
+            </button>
+         </div>
+
+         {/* Request Evidence */}
+         <div className="flex flex-col items-center">
+            <button 
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-bold transition-colors"
+                disabled={!requestEvidenceState.enabled}
+                title={requestEvidenceState.reason}
+            >
+                <Search size={14} /> Request Evidence
+            </button>
+         </div>
+
+         {/* Mark Collected */}
+         <div className="flex flex-col items-center">
+            <button 
+                className="flex items-center gap-2 px-3 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded hover:bg-purple-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:border-slate-300 disabled:text-slate-400 text-xs font-bold transition-colors"
+                disabled={!markCollectedState.enabled}
+                title={markCollectedState.reason}
+            >
+                <CheckSquare size={14} /> Mark Collected
+            </button>
+         </div>
+
+         <div className="w-px h-8 bg-slate-200 mx-2"></div>
+
+         {/* Submit Report */}
+         <div className="flex flex-col items-center">
+            <button 
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 border border-green-700 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:border-slate-300 disabled:text-slate-400 text-xs font-bold transition-colors shadow-sm"
+                disabled={!submitReportState.enabled}
+                title={submitReportState.reason}
+            >
+                <Send size={14} /> Submit Report
+            </button>
+         </div>
+      </div>
+      
+      {/* Show Hints Row if any action blocked */}
+      <div className="flex gap-6 justify-end px-2">
+         {!generateState.enabled && generateState.reason && <DisabledHint reason={generateState.reason} />}
+         {!submitReportState.enabled && submitReportState.reason && <DisabledHint reason={submitReportState.reason} />}
       </div>
 
       {/* Report Tiles Grid */}
