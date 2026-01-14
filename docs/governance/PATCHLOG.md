@@ -89,3 +89,4 @@
 | **V33-S13-PP-03** | S13 Simulated Actions | 2026-01-16 15:45 (IST) | S13 actions simulate Service & Returns lifecycle; audit events emitted (frontend-only). | Yes |
 | **V33-S13-PP-04** | S13 Workflow Navigation Wiring | 2026-01-16 16:00 (IST) | Added S13 Next Step navigation to S14 (Compliance & Audit) to complete the greenfield flow. | Yes |
 | **V33-S14-BP-01** | S14 Stage Contract Stub | 2026-01-16 16:15 (IST) | Added S14 refurbish & recycle context contract + mock data scaffold; S14 screen reads it (read-only). | No |
+| **V33-S14-FP-02** | S14 State Guard by Role | 2026-01-16 16:30 (IST) | Added S14 role/status UI guards for refurbish & recycle actions; no workflow change. | No |

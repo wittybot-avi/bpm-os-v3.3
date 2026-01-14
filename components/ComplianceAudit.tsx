@@ -16,9 +16,15 @@ import {
   Battery,
   Recycle,
   Scale,
-  RefreshCcw
+  RefreshCcw,
+  Search,
+  Wrench,
+  Archive,
+  Play
 } from 'lucide-react';
 import { getMockS14Context } from '../stages/s14/s14Contract';
+import { getS14ActionState, S14ActionId } from '../stages/s14/s14Guards';
+import { DisabledHint } from './DisabledHint';
 
 // Mock Data for Dashboard
 const KPI_DATA = {
@@ -48,12 +54,23 @@ export const ComplianceAudit: React.FC = () => {
   // S14 Context (Read-Only)
   const [s14Context] = useState(getMockS14Context());
 
+  // Helper for Guards
+  const getAction = (actionId: S14ActionId) => getS14ActionState(role, s14Context, actionId);
+
+  // Guard States
+  const startInspState = getAction('START_INSPECTION');
+  const refurbishState = getAction('MARK_FOR_REFURBISH');
+  const recycleState = getAction('MARK_FOR_RECYCLE');
+  const completeRefurbState = getAction('COMPLETE_REFURBISH');
+  const closeCaseState = getAction('CLOSE_CIRCULAR_CASE');
+
   // RBAC Access Check
   const hasAccess = 
     role === UserRole.SYSTEM_ADMIN || 
     role === UserRole.COMPLIANCE || 
     role === UserRole.SUSTAINABILITY || 
-    role === UserRole.MANAGEMENT;
+    role === UserRole.MANAGEMENT ||
+    role === UserRole.ENGINEERING;
 
   const isAuditor = role === UserRole.MANAGEMENT;
 
@@ -168,6 +185,82 @@ export const ComplianceAudit: React.FC = () => {
               <div className="text-2xl font-bold text-slate-800">{KPI_DATA.riskCount}</div>
               <div className="text-xs text-slate-400 mt-1">Flagged for Review</div>
            </div>
+        </div>
+
+        {/* Circular Processing Operations (S14 Actions) */}
+        <div className="col-span-12 bg-white rounded-lg shadow-sm border border-industrial-border p-4">
+            <div className="flex items-center gap-3 mb-4 border-b border-slate-100 pb-2">
+                <RefreshCcw size={18} className="text-brand-600" />
+                <h3 className="font-bold text-slate-700">Circular Processing Operations (S14)</h3>
+                <span className="text-xs text-slate-400 px-2 py-0.5 bg-slate-50 border border-slate-200 rounded">
+                    Role-Gated • Context-Aware
+                </span>
+            </div>
+            
+            <div className="flex flex-wrap gap-4">
+                {/* Inspect */}
+                <div className="flex flex-col items-center">
+                    <button 
+                        disabled={!startInspState.enabled}
+                        title={startInspState.reason}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-md text-sm font-bold hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                    >
+                        <Search size={16} /> Inspect
+                    </button>
+                    {!startInspState.enabled && <DisabledHint reason={startInspState.reason || 'Blocked'} className="mt-1" />}
+                </div>
+
+                <div className="w-px bg-slate-200 h-10"></div>
+
+                {/* Disposition */}
+                <div className="flex flex-col items-center">
+                    <div className="flex gap-2">
+                        <button 
+                            disabled={!refurbishState.enabled}
+                            title={refurbishState.reason}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-md text-sm font-bold hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-300"
+                        >
+                            <Wrench size={16} /> Refurbish
+                        </button>
+                        <button 
+                            disabled={!recycleState.enabled}
+                            title={recycleState.reason}
+                            className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 border border-green-200 rounded-md text-sm font-bold hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-300"
+                        >
+                            <Recycle size={16} /> Recycle
+                        </button>
+                    </div>
+                    {(!refurbishState.enabled || !recycleState.enabled) && (
+                        <DisabledHint reason={refurbishState.reason || recycleState.reason || 'Blocked'} className="mt-1" />
+                    )}
+                </div>
+
+                <div className="w-px bg-slate-200 h-10"></div>
+
+                {/* Execution */}
+                <div className="flex flex-col items-center">
+                    <button 
+                        disabled={!completeRefurbState.enabled}
+                        title={completeRefurbState.reason}
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 border border-slate-300 rounded-md text-sm font-bold hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                    >
+                        <Play size={16} /> Complete Job
+                    </button>
+                    {!completeRefurbState.enabled && <DisabledHint reason={completeRefurbState.reason || 'Blocked'} className="mt-1" />}
+                </div>
+
+                {/* Close */}
+                <div className="flex flex-col items-center ml-auto">
+                    <button 
+                        disabled={!closeCaseState.enabled}
+                        title={closeCaseState.reason}
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white border border-slate-900 rounded-md text-sm font-bold hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:border-slate-300"
+                    >
+                        <Archive size={16} /> Close Case
+                    </button>
+                    {!closeCaseState.enabled && <DisabledHint reason={closeCaseState.reason || 'Blocked'} className="mt-1" />}
+                </div>
+            </div>
         </div>
 
         {/* Regulatory Tracking Scope Panel */}
