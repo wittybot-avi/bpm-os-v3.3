@@ -1,11 +1,15 @@
 import React, { useContext } from 'react';
 import { UserContext, UserRole, APP_VERSION } from '../types';
-import { ShieldAlert, Factory, Settings, FileText, Globe, Users } from 'lucide-react';
+import { ShieldAlert, Factory, Settings, FileText, Globe, Users, Database } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
+import { getMockS0Context } from '../stages/s0/s0Contract';
 
 export const SystemSetup: React.FC = () => {
   const { role } = useContext(UserContext);
+  
+  // S0 Contract Integration
+  const s0Context = getMockS0Context();
 
   const hasAccess = role === UserRole.SYSTEM_ADMIN || role === UserRole.MANAGEMENT;
 
@@ -33,8 +37,13 @@ export const SystemSetup: React.FC = () => {
            </h1>
            <p className="text-slate-500 text-sm mt-1">Plant configuration, regulatory context, and user registry.</p>
         </div>
-        <div className="bg-amber-100 text-amber-800 px-3 py-1 rounded text-xs font-bold border border-amber-200">
-          READ ONLY MODE
+        <div className="flex flex-col items-end gap-1">
+          <div className="bg-amber-100 text-amber-800 px-3 py-1 rounded text-xs font-bold border border-amber-200">
+            READ ONLY MODE
+          </div>
+          <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
+            <Database size={10} /> Context Loaded: {s0Context.status}
+          </div>
         </div>
       </div>
 
@@ -53,15 +62,19 @@ export const SystemSetup: React.FC = () => {
           <div className="space-y-3 text-sm">
              <div className="flex justify-between border-b border-slate-100 pb-2">
                 <span className="text-slate-500">Facility Name</span>
-                <span className="font-medium text-slate-800">Gigafactory 1 - Bengal Unit</span>
+                <span className="font-medium text-slate-800">{s0Context.plantName}</span>
              </div>
              <div className="flex justify-between border-b border-slate-100 pb-2">
                 <span className="text-slate-500">Location</span>
-                <span className="font-medium text-slate-800">Kolkata, WB, India (IST Zone)</span>
+                <span className="font-medium text-slate-800">{s0Context.region}</span>
              </div>
              <div className="flex justify-between border-b border-slate-100 pb-2">
                 <span className="text-slate-500">Facility ID</span>
-                <span className="font-mono text-slate-600">FAC-IND-WB-001</span>
+                <span className="font-mono text-slate-600">{s0Context.plantId}</span>
+             </div>
+             <div className="flex justify-between pt-1">
+                <span className="text-slate-500">Config Last Updated</span>
+                <span className="font-mono text-xs text-slate-400">{s0Context.configLastUpdated}</span>
              </div>
           </div>
         </div>
@@ -108,6 +121,10 @@ export const SystemSetup: React.FC = () => {
              <div className="flex justify-between border-b border-slate-100 pb-2">
                 <span className="text-slate-500">Active SOP Version</span>
                 <span className="font-mono font-bold text-brand-600">{APP_VERSION}</span>
+             </div>
+             <div className="flex justify-between border-b border-slate-100 pb-2">
+                <span className="text-slate-500">Internal Revision</span>
+                <span className="font-mono text-slate-600">{s0Context.activeSopVersion}</span>
              </div>
              <div className="flex justify-between border-b border-slate-100 pb-2">
                 <span className="text-slate-500">Last Audit</span>
