@@ -33,6 +33,12 @@ export const DOC_ARTIFACTS: DocArtifact[] = [
     path: "/docs/handover/RBAC_ACTION_MATRIX.md" 
   },
   { 
+    id: "route-map", 
+    title: "Route & Navigation Map", 
+    tab: "Route Map", 
+    path: "/docs/handover/ROUTE_NAV_MAP.md" 
+  },
+  { 
     id: "rulebook", 
     title: "Rulebook", 
     tab: "Rulebook", 
