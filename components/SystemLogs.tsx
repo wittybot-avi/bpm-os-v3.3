@@ -10,8 +10,11 @@ import {
   Search, 
   Download,
   User,
-  Box
+  Box,
+  Archive,
+  Database
 } from 'lucide-react';
+import { getMockS17Context, S17Context } from '../stages/s17/s17Contract';
 
 interface LogEntry {
   id: string;
@@ -79,6 +82,9 @@ export const SystemLogs: React.FC = () => {
   const { role } = useContext(UserContext);
   const [filterCategory, setFilterCategory] = useState<string>('All');
   const [filterSeverity, setFilterSeverity] = useState<string>('All');
+  
+  // S17 Context
+  const [s17Context] = useState<S17Context>(getMockS17Context());
 
   const isOperator = role === UserRole.OPERATOR;
   const isAuditor = role === UserRole.MANAGEMENT || role === UserRole.COMPLIANCE;
@@ -104,23 +110,31 @@ export const SystemLogs: React.FC = () => {
       <div className="flex items-center justify-between shrink-0 border-b border-slate-200 pb-4">
         <div>
            <div className="flex items-center gap-1 text-xs text-slate-500 mb-1 font-medium uppercase tracking-wider">
-              System <span className="text-slate-300">/</span> Audit
+              System <span className="text-slate-300">/</span> Audit & Archive
            </div>
            <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
              <ClipboardList className="text-brand-600" size={24} />
-             System Event Logs
+             System Logs & Closure (S17)
            </h1>
-           <p className="text-slate-500 text-sm mt-1">Unified immutable log stream for audit and diagnostics.</p>
+           <p className="text-slate-500 text-sm mt-1">Unified immutable log stream and system closure archiving.</p>
         </div>
-        <div className="flex gap-2">
-           {isAuditor && (
-             <div className="bg-slate-800 text-slate-200 px-3 py-1 rounded text-xs font-bold border border-slate-700 uppercase flex items-center gap-2">
-               <ShieldAlert size={14} /> Audit View
-             </div>
-           )}
-           <button className="bg-white border border-slate-300 text-slate-600 px-3 py-2 rounded text-xs font-bold flex items-center gap-2 hover:bg-slate-50 disabled:opacity-50" disabled>
-             <Download size={14} /> Export CSV
-           </button>
+        
+        {/* S17 Context Read-Only Display */}
+        <div className="flex flex-col items-end gap-1">
+          <div className={`flex items-center gap-2 px-3 py-1 rounded text-xs font-bold border uppercase ${
+             s17Context.closureStatus === 'ARCHIVED' ? 'bg-green-50 text-green-700 border-green-200' :
+             s17Context.closureStatus === 'READY' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+             'bg-slate-100 text-slate-600 border-slate-200'
+          }`}>
+             <Archive size={14} />
+             <span>ARCHIVE: {s17Context.closureStatus}</span>
+          </div>
+          <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2 mt-1">
+            <Database size={10} />
+            <span>Ready: {s17Context.recordsReadyToArchiveCount}</span>
+            <span className="text-slate-300">|</span>
+            <span>Batches: {s17Context.archiveBatchesCount}</span>
+          </div>
         </div>
       </div>
 
@@ -156,6 +170,12 @@ export const SystemLogs: React.FC = () => {
             <input type="text" placeholder="Search logs..." className="bg-slate-50 border border-slate-200 rounded pl-8 pr-3 py-1 text-sm w-64 focus:outline-none" disabled />
             <Search size={14} className="absolute left-2 top-1.5 text-slate-400" />
          </div>
+         
+         <div className="w-px h-6 bg-slate-200 mx-2"></div>
+         
+         <button className="bg-white border border-slate-300 text-slate-600 px-3 py-2 rounded text-xs font-bold flex items-center gap-2 hover:bg-slate-50 disabled:opacity-50" disabled>
+             <Download size={14} /> Export CSV
+         </button>
       </div>
 
       {/* Log List */}

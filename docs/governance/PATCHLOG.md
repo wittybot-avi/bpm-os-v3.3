@@ -100,3 +100,4 @@
 | **V33-S16-FP-02** | S16 State Guard by Role | 2026-01-16 18:30 (IST) | Added S16 role/status UI guards for audit & governance actions; no workflow change. | No |
 | **V33-S16-PP-03** | S16 Simulated Actions | 2026-01-16 18:45 (IST) | S16 actions simulate audit lifecycle incl. findings + demo audit pack export; audit events emitted. | Yes |
 | **V33-S16-PP-04** | S16 Workflow Navigation Wiring | 2026-01-16 19:00 (IST) | Added S16 Next Step navigation panel guiding flow to S17 Closure / Archive. | Yes |
+| **V33-S17-BP-01** | S17 Stage Contract Stub | 2026-01-16 19:15 (IST) | Added S17 closure & archive context contract + mock data scaffold; S17 screen reads it (read-only). | No |
