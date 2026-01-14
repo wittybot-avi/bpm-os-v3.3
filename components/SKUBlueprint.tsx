@@ -14,12 +14,18 @@ import {
   Box,
   Layers,
   Database,
-  GitCommit
+  GitCommit,
+  Edit2,
+  Send,
+  ThumbsUp,
+  UploadCloud,
+  Plus
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
 import { DisabledHint } from './DisabledHint';
 import { getMockS1Context } from '../stages/s1/s1Contract';
+import { getS1ActionState, S1ActionId } from '../stages/s1/s1Guards';
 
 // Mock Data Types
 interface SKU {
@@ -94,11 +100,22 @@ export const SKUBlueprint: React.FC = () => {
   // S1 Contract Integration
   const s1Context = getMockS1Context();
 
+  // Helper to resolve action state
+  const getAction = (actionId: S1ActionId) => getS1ActionState(role, s1Context, actionId);
+
+  // Pre-calculate action states
+  const createSkuState = getAction('CREATE_SKU');
+  const editBlueprintState = getAction('EDIT_BLUEPRINT');
+  const submitReviewState = getAction('SUBMIT_FOR_REVIEW');
+  const approveState = getAction('APPROVE_BLUEPRINT');
+  const publishState = getAction('PUBLISH_SKU_BLUEPRINT');
+
   // RBAC Access Check
   const hasAccess = 
     role === UserRole.SYSTEM_ADMIN || 
     role === UserRole.ENGINEERING || 
-    role === UserRole.MANAGEMENT;
+    role === UserRole.MANAGEMENT ||
+    role === UserRole.QA_ENGINEER; // Added QA Engineer for Review logic visibility
 
   if (!hasAccess) {
     return (
@@ -127,20 +144,23 @@ export const SKUBlueprint: React.FC = () => {
         <div className="flex flex-col items-end gap-1">
           <div className="flex gap-2">
             <button 
-              className="bg-brand-600 text-white px-4 py-2 rounded-md font-medium text-sm opacity-50 cursor-not-allowed flex items-center gap-2"
-              disabled
-              title="Demo Mode: Backend creation disabled"
+              className="bg-brand-600 text-white px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400"
+              disabled={!createSkuState.enabled}
+              title={createSkuState.reason}
             >
-              <span>+ Create New SKU</span>
+              <Plus size={16} />
+              <span>Create New SKU</span>
             </button>
           </div>
-          <DisabledHint reason="Demo Mode Active" nextActionHint="Backend Integration Required" />
+          {!createSkuState.enabled && (
+             <DisabledHint reason={createSkuState.reason || 'Blocked'} className="mt-1" />
+          )}
           
           <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2 mt-1">
             <Database size={10} /> 
             <span>Ctx: {s1Context.activeRevision}</span>
             <span className="text-slate-300">|</span>
-            <span>{s1Context.approvalStatus}</span>
+            <span className={`font-bold ${s1Context.approvalStatus === 'APPROVED' ? 'text-green-600' : 'text-amber-600'}`}>{s1Context.approvalStatus}</span>
           </div>
         </div>
       </div>
@@ -206,24 +226,59 @@ export const SKUBlueprint: React.FC = () => {
         {/* Right: Detail View / Blueprint */}
         <div className="col-span-8 bg-white rounded-lg shadow-sm border border-industrial-border flex flex-col overflow-hidden">
           {/* Detail Header */}
-          <div className="p-6 border-b border-slate-100 flex justify-between items-start">
-            <div>
-              <div className="flex items-center gap-3 mb-1">
-                <h2 className="text-xl font-bold text-slate-900">{selectedSku.name}</h2>
-                <span className="bg-slate-100 text-slate-600 text-xs px-2 py-1 rounded font-mono">{selectedSku.code}</span>
+          <div className="p-6 border-b border-slate-100 flex flex-col gap-4">
+            <div className="flex justify-between items-start">
+              <div>
+                <div className="flex items-center gap-3 mb-1">
+                  <h2 className="text-xl font-bold text-slate-900">{selectedSku.name}</h2>
+                  <span className="bg-slate-100 text-slate-600 text-xs px-2 py-1 rounded font-mono">{selectedSku.code}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-slate-500">
+                  <GitCommit size={14} />
+                  <span>Blueprint: {s1Context.activeRevision}</span>
+                  <span className="text-slate-300">•</span>
+                  <span>Signoff: {s1Context.engineeringSignoff}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2 text-sm text-slate-500">
-                <GitCommit size={14} />
-                <span>Blueprint: {s1Context.activeRevision}</span>
-                <span className="text-slate-300">•</span>
-                <span>Signoff: {s1Context.engineeringSignoff}</span>
+              <div className="flex flex-col items-end">
+                <button 
+                  className="text-brand-600 text-sm font-medium hover:underline disabled:opacity-50 disabled:no-underline flex items-center gap-1" 
+                  disabled={!editBlueprintState.enabled}
+                  title={editBlueprintState.reason}
+                >
+                  <Edit2 size={14} /> Edit Blueprint
+                </button>
+                {!editBlueprintState.enabled && (
+                   <DisabledHint reason={editBlueprintState.reason || 'Blocked'} />
+                )}
               </div>
             </div>
-            <div className="flex flex-col items-end">
-              <button className="text-brand-600 text-sm font-medium hover:underline disabled:opacity-50 disabled:no-underline" disabled>
-                Edit Blueprint
-              </button>
-              <DisabledHint reason="Approved State" nextActionHint="Create Revision" />
+
+            {/* Lifecycle Action Toolbar */}
+            <div className="flex items-center gap-2 pt-2 border-t border-slate-50">
+                <button 
+                  disabled={!submitReviewState.enabled}
+                  title={submitReviewState.reason}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-50 text-blue-700 border border-blue-100 rounded hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-100 text-xs font-bold transition-colors"
+                >
+                  <Send size={14} /> Submit for Review
+                </button>
+                
+                <button 
+                  disabled={!approveState.enabled}
+                  title={approveState.reason}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-purple-50 text-purple-700 border border-purple-100 rounded hover:bg-purple-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-100 text-xs font-bold transition-colors"
+                >
+                  <ThumbsUp size={14} /> Approve Blueprint
+                </button>
+
+                <button 
+                  disabled={!publishState.enabled}
+                  title={publishState.reason}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-50 text-green-700 border border-green-100 rounded hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-100 text-xs font-bold transition-colors"
+                >
+                  <UploadCloud size={14} /> Publish to Production
+                </button>
             </div>
           </div>
 
