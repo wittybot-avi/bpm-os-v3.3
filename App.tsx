@@ -61,7 +61,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <ErrorBoundary>
+    <ErrorBoundary onNavigate={setCurrentView}>
       <UserContext.Provider value={userContextValue}>
         <Layout currentView={currentView} onNavigate={setCurrentView}>
           {currentView === 'dashboard' && <Dashboard />}
