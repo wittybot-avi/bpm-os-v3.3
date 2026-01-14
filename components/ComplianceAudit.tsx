@@ -181,12 +181,124 @@ export const ComplianceAudit: React.FC<ComplianceAuditProps> = ({ onNavigate }) 
     }, 600);
   };
 
-  // S16 Action Handlers (Placeholders for now)
-  const handleStartAudit = () => console.log('Start Audit');
-  const handleRaiseFinding = () => console.log('Raise Finding');
-  const handleResolveFinding = () => console.log('Resolve Finding');
-  const handleCloseAudit = () => console.log('Close Audit');
-  const handleExportAudit = () => console.log('Export Audit');
+  // S16 Action Handlers
+  const handleStartAudit = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      setS16Context(prev => ({
+        ...prev,
+        auditStatus: 'REVIEWING',
+        lastAuditReviewedAt: now
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S16',
+        actionId: 'START_AUDIT_REVIEW',
+        actorRole: role,
+        message: 'Audit review session started'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleRaiseFinding = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS16Context(prev => ({
+        ...prev,
+        auditStatus: 'FINDINGS',
+        findingsOpenCount: prev.findingsOpenCount + 1
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S16',
+        actionId: 'RAISE_FINDING',
+        actorRole: role,
+        message: 'New audit finding raised. Remediation required.'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleResolveFinding = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS16Context(prev => {
+        const nextOpen = Math.max(0, prev.findingsOpenCount - 1);
+        return {
+          ...prev,
+          findingsOpenCount: nextOpen,
+          findingsResolvedCount: prev.findingsResolvedCount + 1,
+          auditStatus: nextOpen === 0 ? 'RESOLVED' : 'FINDINGS'
+        };
+      });
+      const evt = emitAuditEvent({
+        stageId: 'S16',
+        actionId: 'MARK_FINDING_RESOLVED',
+        actorRole: role,
+        message: 'Finding marked as resolved. Evidence attached.'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleCloseAudit = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      setS16Context(prev => ({
+        ...prev,
+        auditStatus: 'CLOSED',
+        auditsOpenCount: Math.max(0, prev.auditsOpenCount - 1),
+        auditsClosedCount: prev.auditsClosedCount + 1,
+        lastAuditReviewedAt: now
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S16',
+        actionId: 'CLOSE_AUDIT',
+        actorRole: role,
+        message: 'Audit formally closed and signed off.'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 800);
+  };
+
+  const handleExportAudit = () => {
+    const exportData = {
+        generatedAt: new Date().toISOString(),
+        stage: "S16: Audit & Governance",
+        auditStatus: s16Context.auditStatus,
+        metrics: {
+            auditsOpen: s16Context.auditsOpenCount,
+            auditsClosed: s16Context.auditsClosedCount,
+            findingsOpen: s16Context.findingsOpenCount,
+            findingsResolved: s16Context.findingsResolvedCount
+        },
+        notes: "Frontend Demo Export - Mock Data"
+    };
+    
+    // Create and trigger download
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `AUDIT_PACK_S16_${new Date().getTime()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    const evt = emitAuditEvent({
+        stageId: 'S16',
+        actionId: 'EXPORT_AUDIT_PACK',
+        actorRole: role,
+        message: 'Audit pack (JSON) exported to local device'
+    });
+    setLocalEvents(prev => [evt, ...prev]);
+  };
 
   // Nav Handlers
   const handleNavToS15 = () => {
