@@ -142,3 +142,4 @@ TEMPLATE:
 | **V33-S9-FP-02** | S9 State Guard by Role | 2026-01-16 11:30 (IST) | Added S9 role/status UI guards with blocked reasons; no workflow change. | No |
 | **V33-S9-PP-03** | S9 Simulated Actions | 2026-01-16 11:45 (IST) | S9 actions simulate Final QA lifecycle; audit events emitted (frontend-only). | Yes |
 | **V33-S9-PP-04** | S9 Workflow Navigation Wiring | 2026-01-16 12:00 (IST) | Added S9 Next Step navigation panel guiding flow to S10 Packing. | Yes |
+| **V33-S10-BP-01** | S10 Stage Contract Stub | 2026-01-16 12:15 (IST) | Added S10 BMS Provisioning context contract + mock data scaffold. | No |

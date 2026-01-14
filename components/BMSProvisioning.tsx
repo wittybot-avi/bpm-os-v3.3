@@ -12,10 +12,12 @@ import {
   Settings,
   Battery,
   AlertTriangle,
-  Radio
+  Radio,
+  Database
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
+import { getMockS10Context, S10Context } from '../stages/s10/s10Contract';
 
 // Mock Data Types
 interface ProvisioningPack {
@@ -60,6 +62,10 @@ export const BMSProvisioning: React.FC = () => {
   const [selectedPack, setSelectedPack] = useState<ProvisioningPack>(PROVISIONING_QUEUE[0]);
   const [bmsSerial, setBmsSerial] = useState('');
 
+  // S10 Context (Read-Only)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [s10Context] = useState<S10Context>(getMockS10Context());
+
   // RBAC Access Check
   const hasAccess = 
     role === UserRole.SYSTEM_ADMIN || 
@@ -93,9 +99,19 @@ export const BMSProvisioning: React.FC = () => {
            </h1>
            <p className="text-slate-500 text-sm mt-1">Firmware flashing, configuration injection, and digital identity binding (Trace).</p>
         </div>
-        <div className="flex items-center gap-2 bg-slate-100 px-3 py-1 rounded text-xs font-mono text-slate-600 border border-slate-200">
-             <Wifi size={14} className="text-green-500" />
-             <span>CAN-BUS: ONLINE</span>
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex items-center gap-2 bg-slate-100 px-3 py-1 rounded text-xs font-mono text-slate-600 border border-slate-200">
+               <Wifi size={14} className={s10Context.firmwareRepoStatus === 'ONLINE' ? 'text-green-500' : 'text-red-500'} />
+               <span>REPO: {s10Context.firmwareRepoStatus}</span>
+          </div>
+          <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2 mt-1">
+            <Database size={10} />
+            <span>Queued: {s10Context.packsQueuedCount}</span>
+            <span className="text-slate-300">|</span>
+            <span className={`font-bold ${s10Context.provisioningStatus === 'IDLE' ? 'text-slate-600' : 'text-blue-600'}`}>
+              {s10Context.provisioningStatus}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -239,11 +255,15 @@ export const BMSProvisioning: React.FC = () => {
             <section className="pt-4 border-t border-slate-100">
                  <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
                     <span>Provisioning Trace Sequence</span>
-                    <span>Status: IDLE</span>
+                    <span>Status: {s10Context.provisioningStatus}</span>
                  </div>
                  <div className="flex items-center gap-2">
                     <div className="flex-1 h-2 bg-slate-200 rounded overflow-hidden">
-                        <div className="h-full bg-green-500 w-0"></div>
+                        <div className={`h-full bg-green-500 transition-all duration-500 ${
+                            s10Context.provisioningStatus === 'COMPLETED' ? 'w-full' :
+                            s10Context.provisioningStatus === 'PROVISIONING' ? 'w-1/2' :
+                            'w-0'
+                        }`}></div>
                     </div>
                     <div className="flex gap-4 text-[10px] text-slate-400 font-mono">
                         <span className="flex items-center gap-1"><CheckCircle2 size={10} /> Identity</span>
