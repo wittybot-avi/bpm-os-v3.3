@@ -13,11 +13,14 @@ import {
   Zap,
   Activity,
   Cpu,
-  Database
+  Database,
+  XCircle
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
+import { DisabledHint } from './DisabledHint';
 import { getMockS7Context, S7Context } from '../stages/s7/s7Contract';
+import { getS7ActionState, S7ActionId } from '../stages/s7/s7Guards';
 
 // Mock Data Types
 interface ActivePackBatch {
@@ -64,9 +67,20 @@ export const PackAssembly: React.FC = () => {
   const { role } = useContext(UserContext);
   const [localCount, setLocalCount] = useState(ACTIVE_BATCH.completedQty);
   
-  // S7 Context (Read-Only Mock)
+  // S7 Context (Read-Only Mock for now, used for Guards)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [s7Context] = useState<S7Context>(getMockS7Context());
+
+  // Helper for Guards
+  const getAction = (actionId: S7ActionId) => getS7ActionState(role, s7Context, actionId);
+
+  // Pre-calculate action states
+  const startState = getAction('START_ASSEMBLY');
+  const pauseState = getAction('PAUSE_ASSEMBLY');
+  const resumeState = getAction('RESUME_ASSEMBLY');
+  const completeState = getAction('COMPLETE_PACK');
+  const reportState = getAction('REPORT_ISSUE');
+  const abortState = getAction('ABORT_SESSION');
 
   // RBAC Access Check
   const hasAccess = 
@@ -87,6 +101,11 @@ export const PackAssembly: React.FC = () => {
     );
   }
 
+  // Determine Primary Control Button (Play/Resume vs Pause)
+  const isPaused = s7Context.assemblyStatus === 'PAUSED';
+  const showPlay = s7Context.assemblyStatus === 'IDLE' || isPaused;
+  const playAction = isPaused ? resumeState : startState;
+  
   return (
     <div className="space-y-6 h-full flex flex-col animate-in fade-in duration-300">
       {/* Standard Header */}
@@ -224,45 +243,73 @@ export const PackAssembly: React.FC = () => {
                  <p className="text-slate-500 text-sm">Confirm enclosure seal and initiate end-of-line transfer</p>
               </div>
               
-              <button 
-                disabled={isReadOnly}
-                className="w-full max-w-md h-32 bg-brand-600 hover:bg-brand-700 active:scale-95 transition-all text-white rounded-2xl shadow-xl flex flex-col items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed group border-b-4 border-brand-800"
-                title={isReadOnly ? "Read Only" : "Demo Mode"}
-              >
-                <CheckCircle2 size={48} className="group-hover:scale-110 transition-transform" />
-                <div className="flex flex-col items-center">
-                   <span className="font-bold text-2xl tracking-tight">PACK COMPLETE</span>
-                   <span className="text-xs opacity-75 font-mono uppercase tracking-wider">Print Label & Release</span>
-                </div>
-              </button>
+              <div className="w-full max-w-md flex flex-col items-center">
+                <button 
+                  disabled={!completeState.enabled}
+                  className="w-full h-32 bg-brand-600 hover:bg-brand-700 active:scale-95 transition-all text-white rounded-2xl shadow-xl flex flex-col items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed group border-b-4 border-brand-800 disabled:border-slate-300 disabled:bg-slate-200 disabled:text-slate-400"
+                  title={completeState.reason}
+                >
+                  <CheckCircle2 size={48} className="group-hover:scale-110 transition-transform" />
+                  <div className="flex flex-col items-center">
+                    <span className="font-bold text-2xl tracking-tight">PACK COMPLETE</span>
+                    <span className="text-xs opacity-75 font-mono uppercase tracking-wider">Print Label & Release</span>
+                  </div>
+                </button>
+                {!completeState.enabled && <DisabledHint reason={completeState.reason || 'Blocked'} className="mt-2" />}
+              </div>
 
               <div className="flex gap-4 w-full max-w-md mt-2">
-                 <button 
-                    disabled={isReadOnly}
-                    className="flex-1 py-3 border-2 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
-                 >
-                    <AlertTriangle size={18} />
-                    Report Issue
-                 </button>
-                 <button 
-                    disabled={isReadOnly}
-                    className="flex-1 py-3 border-2 border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
-                 >
-                    <Pause size={18} />
-                    Pause Line
-                 </button>
+                 <div className="flex-1 flex flex-col">
+                    <button 
+                        disabled={!reportState.enabled}
+                        className="w-full py-3 border-2 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={reportState.reason}
+                    >
+                        <AlertTriangle size={18} />
+                        Report Issue
+                    </button>
+                 </div>
+                 
+                 <div className="flex-1 flex flex-col">
+                    <button 
+                        disabled={!pauseState.enabled}
+                        className="w-full py-3 border-2 border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={pauseState.reason}
+                    >
+                        <Pause size={18} />
+                        Pause Line
+                    </button>
+                 </div>
               </div>
 
            </div>
 
-           {/* Workstation Info */}
+           {/* Workstation Info & Global Controls */}
            <div className="bg-slate-800 text-slate-300 rounded-lg shadow-sm p-4 flex justify-between items-center text-sm">
                <div className="flex items-center gap-3">
                   <Activity size={18} className="text-green-400" />
                   <span>Station Cycle Time: <span className="font-mono text-white font-bold">14m 32s</span></span>
                </div>
-               <div className="flex items-center gap-3">
-                  <span>Torque Tool: <span className="text-green-400 font-bold">CONNECTED</span></span>
+               <div className="flex items-center gap-4">
+                  {/* Start/Resume Toggle */}
+                  <button 
+                    disabled={!playAction.enabled}
+                    title={playAction.reason}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white rounded font-bold text-xs disabled:opacity-50 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Play size={12} fill="currentColor" />
+                    {isPaused ? 'RESUME' : 'START'}
+                  </button>
+                  
+                  {/* Abort */}
+                  {abortState.enabled && (
+                    <button 
+                      className="flex items-center gap-2 px-3 py-1.5 bg-red-900/50 hover:bg-red-900 text-red-200 rounded font-bold text-xs transition-colors"
+                      title="Abort Session (Supervisor Only)"
+                    >
+                      <XCircle size={12} /> ABORT
+                    </button>
+                  )}
                </div>
            </div>
 
