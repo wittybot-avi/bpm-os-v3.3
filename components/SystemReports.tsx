@@ -9,8 +9,10 @@ import {
   X,
   PieChart,
   TrendingUp,
-  Layers
+  Layers,
+  Leaf
 } from 'lucide-react';
+import { getMockS15Context } from '../stages/s15/s15Contract';
 
 interface ReportTile {
   id: string;
@@ -132,6 +134,9 @@ const REPORTS: ReportTile[] = [
 
 export const SystemReports: React.FC = () => {
   const [selectedReport, setSelectedReport] = useState<ReportTile | null>(null);
+  
+  // S15 Context (Read-Only)
+  const [s15Context] = useState(getMockS15Context());
 
   return (
     <div className="space-y-6 h-full flex flex-col animate-in fade-in duration-300 relative">
@@ -144,9 +149,32 @@ export const SystemReports: React.FC = () => {
            </div>
            <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
              <FileText className="text-brand-600" size={24} />
-             System Reports
+             System Reports (S15)
            </h1>
-           <p className="text-slate-500 text-sm mt-1">Generated analytics and compliance documentation.</p>
+           <p className="text-slate-500 text-sm mt-1">Generated analytics, compliance reporting, and ESG metrics.</p>
+        </div>
+
+        {/* S15 Context Read-Only Display */}
+        <div className="flex flex-col items-end gap-1">
+          <div className={`flex items-center gap-2 px-3 py-1 rounded text-xs font-bold border uppercase ${
+             s15Context.complianceStatus === 'READY' || s15Context.complianceStatus === 'SUBMITTED' ? 'bg-green-50 text-green-700 border-green-200' :
+             s15Context.complianceStatus === 'NEEDS_EVIDENCE' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+             'bg-slate-100 text-slate-600 border-slate-200'
+          }`}>
+             <ShieldCheck size={14} />
+             <span>STATUS: {s15Context.complianceStatus.replace('_', ' ')}</span>
+          </div>
+          <div className="flex items-center gap-3 text-[10px] text-slate-400 font-mono mt-1">
+             <span className="flex items-center gap-1" title="Missing Evidence">
+                <Database size={10} /> Pending: {s15Context.missingEvidenceCount}
+             </span>
+             <span className="text-slate-300">|</span>
+             <span className="flex items-center gap-1 text-green-600 font-bold" title="ESG Score">
+                <Leaf size={10} /> ESG: {s15Context.esgScorePreview}
+             </span>
+             <span className="text-slate-300">|</span>
+             <span className="font-bold text-slate-600">{s15Context.carbonFootprintKgCo2e} kg CO2e</span>
+          </div>
         </div>
       </div>
 
