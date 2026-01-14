@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { UserContext, UserRole } from '../types';
 import { 
   ShieldAlert, 
@@ -13,13 +13,16 @@ import {
   Cpu,
   Activity,
   Database,
-  ArrowRight
+  ArrowRight,
+  History,
+  CheckCircle2
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
 import { DisabledHint } from './DisabledHint';
 import { getMockS5Context, S5Context } from '../stages/s5/s5Contract';
 import { getS5ActionState, S5ActionId } from '../stages/s5/s5Guards';
+import { emitAuditEvent, getAuditEvents, AuditEvent } from '../utils/auditEvents';
 
 // Mock Data Types
 interface ActiveBatch {
@@ -28,9 +31,8 @@ interface ActiveBatch {
   skuCode: string;
   moduleType: string;
   plannedQty: number;
-  completedQty: number;
+  // completedQty removed from here as it is now driven by S5Context
   targetLine: string;
-  status: 'Running' | 'Paused' | 'Stopped';
 }
 
 interface AssemblyTask {
@@ -46,9 +48,7 @@ const ACTIVE_BATCH: ActiveBatch = {
   skuCode: 'BP-LFP-48V-2.5K',
   moduleType: '48V Standard Module (16S1P)',
   plannedQty: 500,
-  completedQty: 124,
   targetLine: 'Line A - Station 04',
-  status: 'Running'
 };
 
 const TASKS: AssemblyTask[] = [
@@ -62,14 +62,124 @@ const TASKS: AssemblyTask[] = [
 
 export const ModuleAssembly: React.FC = () => {
   const { role } = useContext(UserContext);
-  // Local state for demo counter simulation (visual only)
-  const [localCount, setLocalCount] = useState(ACTIVE_BATCH.completedQty);
   
-  // S5 Context (Read-Only Mock)
-  const [s5Context] = useState<S5Context>(getMockS5Context());
+  // S5 Context & Event State
+  const [s5Context, setS5Context] = useState<S5Context>(getMockS5Context());
+  const [localEvents, setLocalEvents] = useState<AuditEvent[]>([]);
+  const [isSimulating, setIsSimulating] = useState(false);
+
+  // Load events on mount
+  useEffect(() => {
+    setLocalEvents(getAuditEvents().filter(e => e.stageId === 'S5'));
+  }, []);
 
   // Helper to resolve action state
   const getAction = (actionId: S5ActionId) => getS5ActionState(role, s5Context, actionId);
+
+  // Action Handlers
+  const handleStartAssembly = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS5Context(prev => ({
+        ...prev,
+        assemblyStatus: 'ASSEMBLING'
+      }));
+      
+      const evt = emitAuditEvent({
+        stageId: 'S5',
+        actionId: 'START_ASSEMBLY',
+        actorRole: role,
+        message: 'Module assembly started'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handlePauseAssembly = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS5Context(prev => ({
+        ...prev,
+        assemblyStatus: 'PAUSED'
+      }));
+      
+      const evt = emitAuditEvent({
+        stageId: 'S5',
+        actionId: 'PAUSE_ASSEMBLY',
+        actorRole: role,
+        message: 'Assembly paused by operator'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleResumeAssembly = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS5Context(prev => ({
+        ...prev,
+        assemblyStatus: 'ASSEMBLING'
+      }));
+      
+      const evt = emitAuditEvent({
+        stageId: 'S5',
+        actionId: 'RESUME_ASSEMBLY',
+        actorRole: role,
+        message: 'Assembly resumed'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleCompleteModule = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      setS5Context(prev => {
+        const nextInProgress = Math.max(0, prev.modulesInProgressCount - 1);
+        const nextCompleted = prev.modulesCompletedCount + 1;
+        const isFinished = nextInProgress === 0; // Simplified logic: if no more in progress, consider batch done for demo
+
+        return {
+          ...prev,
+          modulesInProgressCount: nextInProgress,
+          modulesCompletedCount: nextCompleted,
+          lastAssemblyAt: now,
+          assemblyStatus: isFinished ? 'COMPLETED' : prev.assemblyStatus
+        };
+      });
+      
+      const evt = emitAuditEvent({
+        stageId: 'S5',
+        actionId: 'COMPLETE_MODULE',
+        actorRole: role,
+        message: 'Module assembly completed (Demo)'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 800);
+  };
+
+  const handleHandoverToQA = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      // In a real system, this might move status to 'TRANSFERRED' or similar.
+      // For now we keep it COMPLETED or move to IDLE to reset demo.
+      // Let's keep it COMPLETED to show end state.
+      
+      const evt = emitAuditEvent({
+        stageId: 'S5',
+        actionId: 'HANDOVER_TO_QA',
+        actorRole: role,
+        message: 'Batch released to Quality Assurance (S6)'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 1000);
+  };
 
   // Pre-calculate action states
   // Station Controls
@@ -77,9 +187,10 @@ export const ModuleAssembly: React.FC = () => {
   const pauseState = getAction('PAUSE_ASSEMBLY');
   const resumeState = getAction('RESUME_ASSEMBLY');
   
-  // Determine effective play button state (Start or Resume)
-  const playButtonState = s5Context.assemblyStatus === 'PAUSED' ? resumeState : startState;
-  const isPlayApplicable = s5Context.assemblyStatus === 'IDLE' || s5Context.assemblyStatus === 'PAUSED';
+  // Determine effective play button state and handler
+  const isPaused = s5Context.assemblyStatus === 'PAUSED';
+  const playButtonState = isPaused ? resumeState : startState;
+  const playButtonHandler = isPaused ? handleResumeAssembly : handleStartAssembly;
 
   // Completion
   const completeState = getAction('COMPLETE_MODULE');
@@ -124,6 +235,7 @@ export const ModuleAssembly: React.FC = () => {
                <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
                  s5Context.assemblyStatus === 'ASSEMBLING' ? 'bg-green-100 text-green-700 animate-pulse' :
                  s5Context.assemblyStatus === 'PAUSED' ? 'bg-amber-100 text-amber-700' :
+                 s5Context.assemblyStatus === 'COMPLETED' ? 'bg-blue-100 text-blue-700' :
                  'bg-slate-100 text-slate-600'
                }`}>
                   <Activity size={14} /> Line {s5Context.assemblyStatus}
@@ -142,6 +254,25 @@ export const ModuleAssembly: React.FC = () => {
 
       <StageStateBanner stageId="S5" />
       <PreconditionsPanel stageId="S5" />
+
+      {/* Recent Local Activity Panel */}
+      {localEvents.length > 0 && (
+        <div className="bg-slate-50 border border-slate-200 rounded-md p-3 mb-6 animate-in slide-in-from-top-2">
+           <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase mb-2">
+              <History size={14} /> Recent S5 Activity (Session)
+           </div>
+           <div className="space-y-2">
+              {localEvents.slice(0, 3).map(evt => (
+                 <div key={evt.id} className="flex items-center gap-3 text-sm bg-white p-2 rounded border border-slate-100 shadow-sm">
+                    <span className="font-mono text-[10px] text-slate-400">{evt.timestamp}</span>
+                    <span className="font-bold text-slate-700 text-xs px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">{evt.actorRole}</span>
+                    <span className="text-slate-600 flex-1 truncate">{evt.message}</span>
+                    <CheckCircle2 size={14} className="text-green-500" />
+                 </div>
+              ))}
+           </div>
+        </div>
+      )}
 
       {/* Active Batch Banner */}
       <div className="bg-slate-900 text-white rounded-lg p-6 shadow-md shrink-0 border border-slate-700">
@@ -167,17 +298,17 @@ export const ModuleAssembly: React.FC = () => {
              <div className="text-right">
                 <div className="text-slate-400 text-xs uppercase font-bold tracking-wider mb-1">Progress</div>
                 <div className="text-3xl font-mono font-bold text-brand-400">
-                   {localCount} <span className="text-lg text-slate-500">/ {ACTIVE_BATCH.plannedQty}</span>
+                   {s5Context.modulesCompletedCount} <span className="text-lg text-slate-500">/ {ACTIVE_BATCH.plannedQty}</span>
                 </div>
                 <div className="w-48 bg-slate-800 rounded-full h-2 mt-2 ml-auto overflow-hidden">
-                   <div className="bg-brand-500 h-full transition-all duration-500" style={{ width: `${(localCount / ACTIVE_BATCH.plannedQty) * 100}%` }}></div>
+                   <div className="bg-brand-500 h-full transition-all duration-500" style={{ width: `${(s5Context.modulesCompletedCount / ACTIVE_BATCH.plannedQty) * 100}%` }}></div>
                 </div>
              </div>
           </div>
       </div>
 
       {/* Operator Workspace Grid */}
-      <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
+      <div className={`flex-1 grid grid-cols-12 gap-6 min-h-0 ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>
         
         {/* Left: Task Checklist */}
         <div className="col-span-4 bg-white rounded-lg shadow-sm border border-industrial-border flex flex-col overflow-hidden">
@@ -217,7 +348,8 @@ export const ModuleAssembly: React.FC = () => {
               <div className="flex gap-6 w-full max-w-lg">
                  <div className="flex-1 flex flex-col items-center">
                     <button 
-                        disabled={!completeState.enabled}
+                        onClick={handleCompleteModule}
+                        disabled={!completeState.enabled || isSimulating}
                         className="w-full h-24 bg-green-600 hover:bg-green-700 active:scale-95 transition-all text-white rounded-xl shadow-lg flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group disabled:bg-slate-200 disabled:text-slate-400"
                         title={completeState.reason}
                     >
@@ -266,15 +398,21 @@ export const ModuleAssembly: React.FC = () => {
                <div className="flex gap-4 items-center">
                   <div className="flex gap-2">
                       <button 
-                        className="bg-slate-100 text-slate-600 p-3 rounded-md hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-300" 
-                        disabled={!pauseState.enabled}
+                        onClick={handlePauseAssembly}
+                        className="bg-slate-100 text-slate-600 p-3 rounded-md hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-300 transition-colors" 
+                        disabled={!pauseState.enabled || isSimulating}
                         title={pauseState.reason || "Pause Line"}
                       >
                         <Pause size={20} fill="currentColor" />
                       </button>
                       <button 
-                        className="bg-green-100 text-green-600 p-3 rounded-md border border-green-200 hover:bg-green-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-300 disabled:border-slate-200" 
-                        disabled={!playButtonState.enabled}
+                        onClick={playButtonHandler}
+                        className={`p-3 rounded-md border transition-colors ${
+                            !playButtonState.enabled 
+                            ? 'bg-slate-50 text-slate-300 border-slate-200 cursor-not-allowed' 
+                            : 'bg-green-100 text-green-600 border-green-200 hover:bg-green-200'
+                        }`} 
+                        disabled={!playButtonState.enabled || isSimulating}
                         title={playButtonState.reason || "Start/Resume Line"}
                       >
                         <Play size={20} fill="currentColor" />
@@ -283,9 +421,11 @@ export const ModuleAssembly: React.FC = () => {
                   
                   {/* Handover Action (Conditional) */}
                   {handoverState.enabled && (
-                    <div className="pl-4 border-l border-slate-200">
+                    <div className="pl-4 border-l border-slate-200 animate-in fade-in slide-in-from-right-2">
                        <button 
-                          className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-bold flex items-center gap-2 hover:bg-blue-700 shadow-sm"
+                          onClick={handleHandoverToQA}
+                          disabled={isSimulating}
+                          className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-bold flex items-center gap-2 hover:bg-blue-700 shadow-sm transition-colors"
                           title="Release batch to QA"
                        >
                           <span>Handover</span>
