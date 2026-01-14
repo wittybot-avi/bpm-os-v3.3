@@ -117,3 +117,4 @@ TEMPLATE:
 | **V33-S2-PP-04** | S2 Workflow Navigation Wiring | 2026-01-16 05:15 (IST) | Added S2 Next Step navigation panel guiding flow to S3 Inbound Receipt. | Yes |
 | **V33-S3-FP-02** | S3 State Guard by Role | 2026-01-16 05:30 (IST) | Added S3 contract stub and role/status UI guards with blocked reasons. | No |
 | **V33-S3-PP-03** | S3 Simulated Actions | 2026-01-16 05:45 (IST) | Added simulated S3 receipt, inspection, and serialization workflow with audit events. | Yes |
+| **V33-S3-PP-04** | S3 Workflow Navigation Wiring | 2026-01-16 06:00 (IST) | Added S3 Next Step navigation panel guiding flow to S4 Batch Planning. | Yes |

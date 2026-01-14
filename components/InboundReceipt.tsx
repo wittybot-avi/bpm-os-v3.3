@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { UserContext, UserRole } from '../types';
+import { UserContext, UserRole, NavView } from '../types';
 import { 
   ShieldAlert, 
   Truck, 
@@ -15,7 +15,9 @@ import {
   History,
   Play,
   Save,
-  Search
+  Search,
+  Radar,
+  CalendarClock
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
@@ -84,7 +86,11 @@ const MOCK_SERIALS: MockSerial[] = Array.from({ length: 15 }).map((_, i) => ({
   batch: 'BAT-001-A'
 }));
 
-export const InboundReceipt: React.FC = () => {
+interface InboundReceiptProps {
+  onNavigate?: (view: NavView) => void;
+}
+
+export const InboundReceipt: React.FC<InboundReceiptProps> = ({ onNavigate }) => {
   const { role } = useContext(UserContext);
   const [selectedShipment, setSelectedShipment] = useState<Shipment>(SHIPMENTS[0]);
   
@@ -190,11 +196,33 @@ export const InboundReceipt: React.FC = () => {
     }, 800);
   };
 
+  // Navigation Handlers
+  const handleNavToS4 = () => {
+    if (onNavigate) {
+      emitAuditEvent({
+        stageId: 'S3',
+        actionId: 'NAV_NEXT_STAGE',
+        actorRole: role,
+        message: 'Navigated to S4: Batch Planning from S3 Next Step panel'
+      });
+      onNavigate('batch_planning');
+    }
+  };
+
+  const handleNavToControlTower = () => {
+    if (onNavigate) {
+      onNavigate('control_tower');
+    }
+  };
+
   // Pre-calculate action states
   const recordReceiptState = getAction('RECORD_RECEIPT');
   const startInspectionState = getAction('START_INSPECTION');
   const startSerializationState = getAction('START_SERIALIZATION');
   const moveToStorageState = getAction('MOVE_TO_STORAGE');
+
+  // Next Step Readiness
+  const isReadyForNext = s3Context.inboundStatus === 'STORED';
 
   // RBAC Access Check
   const hasAccess = 
@@ -276,6 +304,43 @@ export const InboundReceipt: React.FC = () => {
            </div>
         </div>
       )}
+
+      {/* Next Step Guidance Panel */}
+      <div className={`bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm animate-in slide-in-from-top-3 ${!onNavigate ? 'hidden' : ''}`}>
+        <div className="flex items-start gap-3">
+          <div className="p-2 bg-blue-100 rounded-full text-blue-600">
+            <ArrowRight size={20} />
+          </div>
+          <div>
+            <h3 className="font-bold text-blue-900 text-sm">Next Recommended Action</h3>
+            <p className="text-xs text-blue-700 mt-1 max-w-lg">
+              {isReadyForNext 
+                ? "Inbound processing complete. Materials are stored and available for production planning (S4)." 
+                : "Pending completion. Finish inspection and serialization to release inventory for planning."}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 w-full sm:w-auto">
+           <button 
+             onClick={handleNavToControlTower} 
+             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-blue-200 text-blue-700 rounded-md text-xs font-bold hover:bg-blue-100 transition-colors"
+           >
+             <Radar size={14} /> Control Tower
+           </button>
+           <div className="flex-1 sm:flex-none flex flex-col items-center">
+             <button 
+               onClick={handleNavToS4} 
+               disabled={!isReadyForNext}
+               className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-xs font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+             >
+               <CalendarClock size={14} /> Go to S4: Batch Planning
+             </button>
+             {!isReadyForNext && (
+                <span className="text-[9px] text-red-500 mt-1 font-medium">Inbound Not Stored</span>
+             )}
+           </div>
+        </div>
+      </div>
 
       {/* Main Grid */}
       <div className={`flex-1 grid grid-cols-12 gap-6 min-h-0 ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>

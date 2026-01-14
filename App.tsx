@@ -72,7 +72,7 @@ const App: React.FC = () => {
           {currentView === 'system_setup' && <SystemSetup onNavigate={setCurrentView} />}
           {currentView === 'sku_blueprint' && <SKUBlueprint onNavigate={setCurrentView} />}
           {currentView === 'procurement' && <Procurement onNavigate={setCurrentView} />}
-          {currentView === 'inbound_receipt' && <InboundReceipt />}
+          {currentView === 'inbound_receipt' && <InboundReceipt onNavigate={setCurrentView} />}
           {currentView === 'batch_planning' && <BatchPlanning />}
           {currentView === 'module_assembly' && <ModuleAssembly />}
           {currentView === 'module_qa' && <ModuleQA />}
