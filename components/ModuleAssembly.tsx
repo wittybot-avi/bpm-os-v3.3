@@ -11,11 +11,13 @@ import {
   RotateCcw,
   Box,
   Cpu,
-  Activity
+  Activity,
+  Database
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
 import { DisabledHint } from './DisabledHint';
+import { getMockS5Context, S5Context } from '../stages/s5/s5Contract';
 
 // Mock Data Types
 interface ActiveBatch {
@@ -60,6 +62,9 @@ export const ModuleAssembly: React.FC = () => {
   const { role } = useContext(UserContext);
   // Local state for demo counter simulation (visual only)
   const [localCount, setLocalCount] = useState(ACTIVE_BATCH.completedQty);
+  
+  // S5 Context (Read-Only Mock)
+  const [s5Context] = useState<S5Context>(getMockS5Context());
 
   // RBAC Access Check
   const hasAccess = 
@@ -94,10 +99,21 @@ export const ModuleAssembly: React.FC = () => {
            </h1>
            <p className="text-slate-500 text-sm mt-1">Operator Interface: Assembly Execution & Quality Check.</p>
         </div>
-        <div className="flex items-center gap-2">
-             <span className="flex items-center gap-1.5 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold uppercase tracking-wider animate-pulse">
-                <Activity size={14} /> Line Active
-             </span>
+        
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex items-center gap-2">
+               <span className="flex items-center gap-1.5 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold uppercase tracking-wider animate-pulse">
+                  <Activity size={14} /> Line Active
+               </span>
+          </div>
+          <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2 mt-1">
+            <Database size={10} />
+            <span>InProgress: {s5Context.modulesInProgressCount}</span>
+            <span className="text-slate-300">|</span>
+            <span className={`font-bold ${s5Context.assemblyStatus === 'ASSEMBLING' ? 'text-green-600' : 'text-slate-600'}`}>
+              {s5Context.assemblyStatus}
+            </span>
+          </div>
         </div>
       </div>
 
