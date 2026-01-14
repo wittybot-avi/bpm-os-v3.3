@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { UserContext, UserRole } from '../types';
+import { UserContext, UserRole, NavView } from '../types';
 import { 
   ShieldAlert, 
   PackageCheck, 
@@ -19,7 +19,10 @@ import {
   Stamp,
   UserCheck,
   History,
-  Activity
+  Activity,
+  ArrowRight,
+  Radar,
+  LifeBuoy
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
@@ -92,7 +95,11 @@ const INVENTORY: InventoryItem[] = [
   }
 ];
 
-export const FinishedGoods: React.FC = () => {
+interface FinishedGoodsProps {
+  onNavigate?: (view: NavView) => void;
+}
+
+export const FinishedGoods: React.FC<FinishedGoodsProps> = ({ onNavigate }) => {
   const { role } = useContext(UserContext);
   const [selectedItem, setSelectedItem] = useState<InventoryItem>(INVENTORY[0]);
 
@@ -212,12 +219,34 @@ export const FinishedGoods: React.FC = () => {
     }, 600);
   };
 
+  const handleNavToControlTower = () => {
+    if (onNavigate) {
+      onNavigate('control_tower');
+    }
+  };
+
+  const handleNavToS12 = () => {
+    if (onNavigate) {
+      emitAuditEvent({
+        stageId: 'S11',
+        actionId: 'NAV_NEXT_STAGE',
+        actorRole: role,
+        message: 'Navigated to Warranty & Lifecycle (S15) from S11 Next Step panel'
+      });
+      // Mapped to Service & Warranty (S15) as "Warranty & Lifecycle" per prompt intent
+      onNavigate('service_warranty');
+    }
+  };
+
   // Guard States
   const prepareDispatchState = getAction('PREPARE_DISPATCH');
   const handoverState = getAction('HANDOVER_TO_LOGISTICS');
   const confirmTransitState = getAction('CONFIRM_IN_TRANSIT');
   const confirmDeliveryState = getAction('CONFIRM_DELIVERY');
   const closeCustodyState = getAction('CLOSE_CUSTODY');
+
+  // Next Step Readiness
+  const isReadyForNext = s11Context.dispatchStatus === 'DELIVERED';
 
   // RBAC Access Check
   const hasAccess = 
@@ -289,6 +318,43 @@ export const FinishedGoods: React.FC = () => {
            </div>
         </div>
       )}
+
+      {/* Next Step Guidance Panel */}
+      <div className={`bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm animate-in slide-in-from-top-3 ${!onNavigate ? 'hidden' : ''}`}>
+        <div className="flex items-start gap-3">
+          <div className="p-2 bg-blue-100 rounded-full text-blue-600">
+            <ArrowRight size={20} />
+          </div>
+          <div>
+            <h3 className="font-bold text-blue-900 text-sm">Next Recommended Action</h3>
+            <p className="text-xs text-blue-700 mt-1 max-w-lg">
+              {isReadyForNext 
+                ? "Delivery confirmed. Proceed to Warranty & Lifecycle (S12) to manage field service." 
+                : "Dispatch cycle in progress. Confirm final delivery to unlock Warranty context."}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 w-full sm:w-auto">
+           <button 
+             onClick={handleNavToControlTower} 
+             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-blue-200 text-blue-700 rounded-md text-xs font-bold hover:bg-blue-100 transition-colors"
+           >
+             <Radar size={14} /> Control Tower
+           </button>
+           <div className="flex-1 sm:flex-none flex flex-col items-center">
+             <button 
+               onClick={handleNavToS12} 
+               disabled={!isReadyForNext}
+               className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-xs font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+             >
+               <LifeBuoy size={14} /> Go to Warranty & Lifecycle
+             </button>
+             {!isReadyForNext && (
+                <span className="text-[9px] text-red-500 mt-1 font-medium">Not Delivered</span>
+             )}
+           </div>
+        </div>
+      </div>
 
       {/* Main Grid */}
       <div className={`flex-1 grid grid-cols-12 gap-6 min-h-0 ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>

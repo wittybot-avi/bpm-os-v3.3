@@ -79,8 +79,8 @@ const App: React.FC = () => {
           {currentView === 'pack_assembly' && <PackAssembly onNavigate={setCurrentView} />}
           {currentView === 'pack_review' && <PackReview onNavigate={setCurrentView} />}
           {currentView === 'battery_registry' && <BatteryRegistry onNavigate={setCurrentView} />}
-          {currentView === 'bms_provisioning' && <BMSProvisioning />}
-          {currentView === 'finished_goods' && <FinishedGoods />}
+          {currentView === 'bms_provisioning' && <BMSProvisioning onNavigate={setCurrentView} />}
+          {currentView === 'finished_goods' && <FinishedGoods onNavigate={setCurrentView} />}
           {currentView === 'packaging_aggregation' && <PackagingAggregation />}
           {currentView === 'dispatch_authorization' && <DispatchAuthorization />}
           {currentView === 'dispatch_execution' && <DispatchExecution />}
