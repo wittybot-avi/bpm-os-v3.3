@@ -7,7 +7,6 @@ import {
   Search, 
   Filter, 
   Truck, 
-  Move, 
   Bookmark, 
   Info,
   Battery,
@@ -15,12 +14,17 @@ import {
   Globe,
   FileBadge,
   Archive,
-  Scale,
-  ClipboardList
+  ClipboardList,
+  Box,
+  Stamp,
+  UserCheck,
+  Flag
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
 import { getMockS11Context } from '../stages/s11/s11Contract';
+import { getS11ActionState, S11ActionId } from '../stages/s11/s11Guards';
+import { DisabledHint } from './DisabledHint';
 
 // Mock Data Types
 interface InventoryItem {
@@ -92,6 +96,16 @@ export const FinishedGoods: React.FC = () => {
 
   // Read-only S11 Context
   const s11Context = getMockS11Context();
+
+  // Helper for Guards
+  const getAction = (actionId: S11ActionId) => getS11ActionState(role, s11Context, actionId);
+
+  // Guard States
+  const prepareDispatchState = getAction('PREPARE_DISPATCH');
+  const handoverState = getAction('HANDOVER_TO_LOGISTICS');
+  const confirmTransitState = getAction('CONFIRM_IN_TRANSIT');
+  const confirmDeliveryState = getAction('CONFIRM_DELIVERY');
+  const closeCustodyState = getAction('CLOSE_CUSTODY');
 
   // RBAC Access Check
   const hasAccess = 
@@ -295,41 +309,81 @@ export const FinishedGoods: React.FC = () => {
               </div>
             </section>
 
-            {/* 4. Actions */}
+            {/* 4. Actions (Updated with S11 Guards) */}
             <section className="pt-4 border-t border-slate-100">
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2">
                     <Truck size={16} className="text-brand-500" />
-                    Warehouse Actions
+                    Dispatch Lifecycle Operations
                 </h3>
-                <div className="flex gap-4">
-                    <button 
-                        disabled 
-                        className="flex-1 bg-white border border-slate-300 text-slate-500 py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 opacity-60 cursor-not-allowed"
-                        title="Demo Mode: Backend locked"
-                    >
-                        <Bookmark size={16} />
-                        Reserve
-                    </button>
-                    <button 
-                        disabled 
-                        className="flex-1 bg-white border border-slate-300 text-slate-500 py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 opacity-60 cursor-not-allowed"
-                        title="Demo Mode: Backend locked"
-                    >
-                        <Move size={16} />
-                        Move Loc
-                    </button>
-                    <button 
-                        disabled 
-                        className="flex-1 bg-brand-600 text-white py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 opacity-50 cursor-not-allowed shadow-sm"
-                        title="Demo Mode: Backend locked"
-                    >
-                        <Truck size={16} />
-                        Dispatch
-                    </button>
+                
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    {/* Prepare Dispatch */}
+                    <div className="flex flex-col">
+                        <button 
+                            disabled={!prepareDispatchState.enabled} 
+                            className="w-full bg-white border border-slate-300 text-slate-700 py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 transition-colors"
+                            title={prepareDispatchState.reason}
+                        >
+                            <Bookmark size={16} />
+                            Prepare Dispatch
+                        </button>
+                        {!prepareDispatchState.enabled && <DisabledHint reason={prepareDispatchState.reason || 'Blocked'} className="mx-auto" />}
+                    </div>
+
+                    {/* Handover to Logistics */}
+                    <div className="flex flex-col">
+                        <button 
+                            disabled={!handoverState.enabled} 
+                            className="w-full bg-white border border-slate-300 text-slate-700 py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 transition-colors"
+                            title={handoverState.reason}
+                        >
+                            <Box size={16} />
+                            Handover to Logistics
+                        </button>
+                        {!handoverState.enabled && <DisabledHint reason={handoverState.reason || 'Blocked'} className="mx-auto" />}
+                    </div>
                 </div>
-                 <p className="text-center text-xs text-slate-400 mt-3">
-                    Warehouse mutations are disabled in Frontend-Only Demo Mode.
-                </p>
+
+                <div className="grid grid-cols-3 gap-3">
+                    {/* Confirm Transit */}
+                    <div className="flex flex-col">
+                        <button 
+                            disabled={!confirmTransitState.enabled} 
+                            className="w-full bg-blue-50 text-blue-700 border border-blue-200 py-2 rounded-md font-bold text-xs flex flex-col items-center justify-center gap-1 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 transition-colors"
+                            title={confirmTransitState.reason}
+                        >
+                            <Truck size={14} />
+                            <span>Confirm Transit</span>
+                        </button>
+                        {!confirmTransitState.enabled && <DisabledHint reason={confirmTransitState.reason || 'Blocked'} className="mx-auto" />}
+                    </div>
+
+                    {/* Confirm Delivery */}
+                    <div className="flex flex-col">
+                        <button 
+                            disabled={!confirmDeliveryState.enabled} 
+                            className="w-full bg-green-50 text-green-700 border border-green-200 py-2 rounded-md font-bold text-xs flex flex-col items-center justify-center gap-1 hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 transition-colors"
+                            title={confirmDeliveryState.reason}
+                        >
+                            <UserCheck size={14} />
+                            <span>Confirm Delivery</span>
+                        </button>
+                        {!confirmDeliveryState.enabled && <DisabledHint reason={confirmDeliveryState.reason || 'Blocked'} className="mx-auto" />}
+                    </div>
+
+                    {/* Close Custody */}
+                    <div className="flex flex-col">
+                        <button 
+                            disabled={!closeCustodyState.enabled} 
+                            className="w-full bg-slate-100 text-slate-700 border border-slate-200 py-2 rounded-md font-bold text-xs flex flex-col items-center justify-center gap-1 hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 transition-colors"
+                            title={closeCustodyState.reason}
+                        >
+                            <Stamp size={14} />
+                            <span>Close Custody</span>
+                        </button>
+                        {!closeCustodyState.enabled && <DisabledHint reason={closeCustodyState.reason || 'Blocked'} className="mx-auto" />}
+                    </div>
+                </div>
             </section>
             
           </div>
