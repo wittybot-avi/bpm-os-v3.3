@@ -1,4 +1,4 @@
-import React, { useContext, useMemo } from 'react';
+import React, { useContext, useMemo, useState } from 'react';
 import { 
   Radar, 
   PlayCircle, 
@@ -22,9 +22,35 @@ import {
   Eye,
   Link,
   Stamp,
-  LifeBuoy
+  LifeBuoy,
+  Map,
+  ChevronRight,
+  X
 } from 'lucide-react';
-import { UserContext, UserRole, APP_VERSION } from '../types';
+import { UserContext, UserRole, APP_VERSION, NavView } from '../types';
+import { STAGE_STATUS_MAP } from '../data/stageState';
+
+// Lifecycle Navigation Map
+const LIFECYCLE_MAP: { id: string; label: string; route: NavView }[] = [
+  { id: 'S0', label: 'System Setup', route: 'system_setup' },
+  { id: 'S1', label: 'SKU & Blueprint', route: 'sku_blueprint' },
+  { id: 'S2', label: 'Procurement', route: 'procurement' },
+  { id: 'S3', label: 'Inbound Receipt', route: 'inbound_receipt' },
+  { id: 'S4', label: 'Batch Planning', route: 'batch_planning' },
+  { id: 'S5', label: 'Module Assembly', route: 'module_assembly' },
+  { id: 'S6', label: 'Module QA', route: 'module_qa' },
+  { id: 'S7', label: 'Pack Assembly', route: 'pack_assembly' },
+  { id: 'S8', label: 'Pack Review', route: 'pack_review' },
+  { id: 'S9', label: 'Battery Registry', route: 'battery_registry' },
+  { id: 'S10', label: 'BMS Provisioning', route: 'bms_provisioning' },
+  { id: 'S11', label: 'Finished Goods', route: 'finished_goods' },
+  { id: 'S12', label: 'Packaging', route: 'packaging_aggregation' },
+  { id: 'S13', label: 'Dispatch Auth', route: 'dispatch_authorization' },
+  { id: 'S14', label: 'Dispatch Exec', route: 'dispatch_execution' },
+  { id: 'S15', label: 'Service & Warranty', route: 'service_warranty' },
+  { id: 'S16', label: 'Recycling', route: 'recycling_recovery' },
+  { id: 'S17', label: 'Audit & Closure', route: 'compliance_audit' },
+];
 
 interface RunbookProps {
   id: string;
@@ -147,12 +173,13 @@ const GateNode: React.FC<{ status: 'Open' | 'Closed' | 'Locked' }> = ({ status }
 );
 
 interface ControlTowerProps {
-  onNavigate: (runbookId: string) => void;
+  onNavigate: (runbookId: string | NavView) => void;
   onViewExceptions?: () => void;
 }
 
 export const ControlTower: React.FC<ControlTowerProps> = ({ onNavigate, onViewExceptions }) => {
   const { role } = useContext(UserContext);
+  const [walkthroughMode, setWalkthroughMode] = useState(false);
 
   // Role Logic Configuration
   const roleConfig = useMemo(() => {
@@ -229,13 +256,26 @@ export const ControlTower: React.FC<ControlTowerProps> = ({ onNavigate, onViewEx
            <p className="text-slate-500 text-sm mt-1">Operational visibility and orchestration across plant workflows.</p>
         </div>
         <div className="flex flex-col items-end gap-2">
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs font-bold border uppercase shadow-sm ${
-                roleConfig.auditMode 
-                ? 'bg-slate-800 text-slate-200 border-slate-700' 
-                : 'bg-white text-slate-600 border-slate-200'
-            }`}>
-                {roleConfig.auditMode ? <ShieldCheck size={14} className="text-emerald-400" /> : <Eye size={14} />}
-                <span>Viewing as: {roleConfig.label}</span>
+            <div className="flex gap-2">
+                <button
+                    onClick={() => setWalkthroughMode(!walkthroughMode)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs font-bold border uppercase shadow-sm transition-colors ${
+                        walkthroughMode 
+                        ? 'bg-brand-600 text-white border-brand-700' 
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    }`}
+                >
+                    <Map size={14} />
+                    <span>Walkthrough Mode</span>
+                </button>
+                <div className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs font-bold border uppercase shadow-sm ${
+                    roleConfig.auditMode 
+                    ? 'bg-slate-800 text-slate-200 border-slate-700' 
+                    : 'bg-white text-slate-600 border-slate-200'
+                }`}>
+                    {roleConfig.auditMode ? <ShieldCheck size={14} className="text-emerald-400" /> : <Eye size={14} />}
+                    <span>Viewing as: {roleConfig.label}</span>
+                </div>
             </div>
             {roleConfig.auditMode && (
                 <div className="text-[10px] text-red-500 font-bold uppercase tracking-wider">
@@ -244,6 +284,52 @@ export const ControlTower: React.FC<ControlTowerProps> = ({ onNavigate, onViewEx
             )}
         </div>
       </div>
+
+      {/* Lifecycle Walkthrough Panel */}
+      {walkthroughMode && (
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 animate-in slide-in-from-top-4 shadow-sm">
+              <div className="flex justify-between items-center mb-3 border-b border-slate-200 pb-2">
+                  <div className="flex items-center gap-2">
+                      <Map size={16} className="text-brand-600" />
+                      <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider">Global SOP Lifecycle Map</h3>
+                  </div>
+                  <button 
+                    onClick={() => setWalkthroughMode(false)}
+                    className="text-slate-400 hover:text-slate-600"
+                  >
+                      <X size={16} />
+                  </button>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
+                  {LIFECYCLE_MAP.map((stage) => {
+                      const status = STAGE_STATUS_MAP[stage.id] || { state: 'WAITING' };
+                      return (
+                          <button
+                              key={stage.id}
+                              onClick={() => {
+                                  // Hack: casting to any to allow direct NavView jump from here
+                                  // ControlTower typically navigates to Runbook IDs, but we want direct screen access for walkthrough
+                                  onNavigate(stage.route);
+                              }}
+                              className="flex items-center gap-2 p-2 rounded border bg-white hover:bg-brand-50 hover:border-brand-200 transition-colors text-left group"
+                          >
+                              <div className={`w-2 h-2 rounded-full shrink-0 ${
+                                  status.state === 'RUNNING' ? 'bg-green-500 animate-pulse' :
+                                  status.state === 'READY' ? 'bg-blue-400' :
+                                  status.state === 'BLOCKED' ? 'bg-red-500' :
+                                  'bg-slate-300'
+                              }`}></div>
+                              <div className="min-w-0">
+                                  <div className="text-[10px] font-mono text-slate-400 group-hover:text-brand-500 font-bold">{stage.id}</div>
+                                  <div className="text-xs font-medium text-slate-700 truncate">{stage.label}</div>
+                              </div>
+                              <ChevronRight size={12} className="ml-auto text-slate-300 group-hover:text-brand-400 opacity-0 group-hover:opacity-100" />
+                          </button>
+                      )
+                  })}
+              </div>
+          </div>
+      )}
 
       {/* Role Context Banner */}
       <div className={`px-4 py-3 rounded-md border flex justify-between items-center text-sm ${
