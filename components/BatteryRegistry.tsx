@@ -21,11 +21,18 @@ import {
   Truck,
   Users,
   ShieldCheck,
-  ClipboardCheck
+  ClipboardCheck,
+  Play,
+  ThumbsUp,
+  ThumbsDown,
+  LogOut,
+  Stethoscope
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
+import { DisabledHint } from './DisabledHint';
 import { getMockS9Context, S9Context } from '../stages/s9/s9Contract';
+import { getS9ActionState, S9ActionId } from '../stages/s9/s9Guards';
 
 // Mock Data Types
 interface RegistryPack {
@@ -160,6 +167,9 @@ export const BatteryRegistry: React.FC = () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [s9Context] = useState<S9Context>(getMockS9Context());
 
+  // Helper for Guards
+  const getAction = (actionId: S9ActionId) => getS9ActionState(role, s9Context, actionId);
+
   // RBAC Access Check
   const hasAccess = 
     role === UserRole.SYSTEM_ADMIN || 
@@ -168,6 +178,13 @@ export const BatteryRegistry: React.FC = () => {
     role === UserRole.QA_ENGINEER;
 
   const isAuditor = role === UserRole.MANAGEMENT;
+
+  // Guard States
+  const startQaState = getAction('START_FINAL_QA');
+  const completeQaState = getAction('COMPLETE_FINAL_QA'); // Assuming checking phase involves marking items
+  const approveState = getAction('MARK_FINAL_APPROVE');
+  const rejectState = getAction('MARK_FINAL_REJECT');
+  const releaseState = getAction('RELEASE_TO_PACKING');
 
   if (!hasAccess) {
     return (
@@ -315,6 +332,70 @@ export const BatteryRegistry: React.FC = () => {
 
           <div className="flex-1 overflow-y-auto p-6 space-y-8">
             
+            {/* --- FINAL QA OPERATIONS (NEW PANEL) --- */}
+            <section className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-6 shadow-sm">
+               <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <Stethoscope size={16} className="text-brand-500" />
+                  Final QA Workstation
+               </h3>
+               
+               <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                     <button 
+                       disabled={!startQaState.enabled}
+                       className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-slate-200 rounded-md text-sm font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                       title={startQaState.reason}
+                     >
+                        <Play size={16} /> Start QA Session
+                     </button>
+                     {!startQaState.enabled && <DisabledHint reason={startQaState.reason || 'Blocked'} className="mt-1" />}
+                  </div>
+                  <div>
+                     <button 
+                       disabled={!completeQaState.enabled}
+                       className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-slate-200 rounded-md text-sm font-bold text-slate-700 hover:bg-green-50 hover:text-green-700 hover:border-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                       title={completeQaState.reason}
+                     >
+                        <CheckCircle size={16} /> Finish Checks
+                     </button>
+                     {!completeQaState.enabled && <DisabledHint reason={completeQaState.reason || 'Blocked'} className="mt-1" />}
+                  </div>
+               </div>
+
+               <div className="grid grid-cols-3 gap-3 pt-2 border-t border-slate-200">
+                  <div className="flex flex-col">
+                     <button 
+                       disabled={!approveState.enabled}
+                       className="w-full flex flex-col items-center justify-center p-2 bg-green-100 text-green-800 rounded hover:bg-green-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 transition-colors"
+                       title={approveState.reason}
+                     >
+                        <ThumbsUp size={16} className="mb-1" />
+                        <span className="text-xs font-bold">APPROVE</span>
+                     </button>
+                  </div>
+                  <div className="flex flex-col">
+                     <button 
+                       disabled={!rejectState.enabled}
+                       className="w-full flex flex-col items-center justify-center p-2 bg-red-100 text-red-800 rounded hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 transition-colors"
+                       title={rejectState.reason}
+                     >
+                        <ThumbsDown size={16} className="mb-1" />
+                        <span className="text-xs font-bold">REJECT</span>
+                     </button>
+                  </div>
+                  <div className="flex flex-col">
+                     <button 
+                       disabled={!releaseState.enabled}
+                       className="w-full flex flex-col items-center justify-center p-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 transition-colors"
+                       title={releaseState.reason}
+                     >
+                        <LogOut size={16} className="mb-1" />
+                        <span className="text-xs font-bold">RELEASE</span>
+                     </button>
+                  </div>
+               </div>
+            </section>
+
             {/* --- SECTION: ASSET TRACKING --- */}
             <div className="border-l-4 border-blue-500 pl-4">
                 <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-1 flex items-center gap-2">
