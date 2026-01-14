@@ -1,5 +1,5 @@
-import React, { useContext, useState } from 'react';
-import { UserContext, UserRole } from '../types';
+import React, { useContext, useState, useEffect } from 'react';
+import { UserContext, UserRole, NavView } from '../types';
 import { 
   ShieldAlert, 
   Battery, 
@@ -14,13 +14,17 @@ import {
   Activity,
   Cpu,
   Database,
-  XCircle
+  XCircle,
+  History,
+  Radar,
+  ArrowRight
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
 import { DisabledHint } from './DisabledHint';
 import { getMockS7Context, S7Context } from '../stages/s7/s7Contract';
 import { getS7ActionState, S7ActionId } from '../stages/s7/s7Guards';
+import { emitAuditEvent, getAuditEvents, AuditEvent } from '../utils/auditEvents';
 
 // Mock Data Types
 interface ActivePackBatch {
@@ -63,16 +67,129 @@ const TASKS: PackTask[] = [
   { id: 8, label: 'Hi-Pot / Insulation Pre-Check', category: 'Safety' },
 ];
 
-export const PackAssembly: React.FC = () => {
+interface PackAssemblyProps {
+  onNavigate?: (view: NavView) => void;
+}
+
+export const PackAssembly: React.FC<PackAssemblyProps> = ({ onNavigate }) => {
   const { role } = useContext(UserContext);
   const [localCount, setLocalCount] = useState(ACTIVE_BATCH.completedQty);
   
-  // S7 Context (Read-Only Mock for now, used for Guards)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [s7Context] = useState<S7Context>(getMockS7Context());
+  // S7 Context & Event State
+  const [s7Context, setS7Context] = useState<S7Context>(getMockS7Context());
+  const [localEvents, setLocalEvents] = useState<AuditEvent[]>([]);
+  const [isSimulating, setIsSimulating] = useState(false);
+
+  // Load events on mount
+  useEffect(() => {
+    setLocalEvents(getAuditEvents().filter(e => e.stageId === 'S7'));
+  }, []);
 
   // Helper for Guards
   const getAction = (actionId: S7ActionId) => getS7ActionState(role, s7Context, actionId);
+
+  // Action Handlers
+  const handleStartAssembly = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS7Context(prev => ({ ...prev, assemblyStatus: 'ASSEMBLING' }));
+      const evt = emitAuditEvent({
+        stageId: 'S7',
+        actionId: 'START_ASSEMBLY',
+        actorRole: role,
+        message: 'Pack assembly line started'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handlePauseAssembly = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS7Context(prev => ({ ...prev, assemblyStatus: 'PAUSED' }));
+      const evt = emitAuditEvent({
+        stageId: 'S7',
+        actionId: 'PAUSE_ASSEMBLY',
+        actorRole: role,
+        message: 'Line paused by operator'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleResumeAssembly = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS7Context(prev => ({ ...prev, assemblyStatus: 'ASSEMBLING' }));
+      const evt = emitAuditEvent({
+        stageId: 'S7',
+        actionId: 'RESUME_ASSEMBLY',
+        actorRole: role,
+        message: 'Line operation resumed'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleCompletePack = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      setS7Context(prev => ({
+        ...prev,
+        packsInProgressCount: Math.max(0, prev.packsInProgressCount - 1),
+        packsCompletedCount: prev.packsCompletedCount + 1,
+        lastAssemblyAt: now
+      }));
+      setLocalCount(c => c + 1);
+      const evt = emitAuditEvent({
+        stageId: 'S7',
+        actionId: 'COMPLETE_PACK',
+        actorRole: role,
+        message: 'Pack assembly completed & verified (Safety Check OK)'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 800);
+  };
+
+  const handleReportIssue = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const evt = emitAuditEvent({
+        stageId: 'S7',
+        actionId: 'REPORT_ISSUE',
+        actorRole: role,
+        message: 'Issue reported: Station alignment warning'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 400);
+  };
+
+  const handleAbortSession = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS7Context(prev => ({ ...prev, assemblyStatus: 'IDLE' }));
+      const evt = emitAuditEvent({
+        stageId: 'S7',
+        actionId: 'ABORT_SESSION',
+        actorRole: role,
+        message: 'Assembly session aborted'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleNavToControlTower = () => {
+    if (onNavigate) {
+      onNavigate('control_tower');
+    }
+  };
 
   // Pre-calculate action states
   const startState = getAction('START_ASSEMBLY');
@@ -82,14 +199,17 @@ export const PackAssembly: React.FC = () => {
   const reportState = getAction('REPORT_ISSUE');
   const abortState = getAction('ABORT_SESSION');
 
+  // Determine Primary Control Button (Play/Resume vs Pause)
+  const isPaused = s7Context.assemblyStatus === 'PAUSED';
+  const playAction = isPaused ? resumeState : startState;
+  const playHandler = isPaused ? handleResumeAssembly : handleStartAssembly;
+
   // RBAC Access Check
   const hasAccess = 
     role === UserRole.SYSTEM_ADMIN || 
     role === UserRole.OPERATOR || 
     role === UserRole.SUPERVISOR || 
     role === UserRole.MANAGEMENT;
-
-  const isReadOnly = role === UserRole.MANAGEMENT;
 
   if (!hasAccess) {
     return (
@@ -101,11 +221,6 @@ export const PackAssembly: React.FC = () => {
     );
   }
 
-  // Determine Primary Control Button (Play/Resume vs Pause)
-  const isPaused = s7Context.assemblyStatus === 'PAUSED';
-  const showPlay = s7Context.assemblyStatus === 'IDLE' || isPaused;
-  const playAction = isPaused ? resumeState : startState;
-  
   return (
     <div className="space-y-6 h-full flex flex-col animate-in fade-in duration-300">
       {/* Standard Header */}
@@ -142,6 +257,50 @@ export const PackAssembly: React.FC = () => {
       <StageStateBanner stageId="S7" />
       <PreconditionsPanel stageId="S7" />
 
+      {/* Recent Local Activity Panel */}
+      {localEvents.length > 0 && (
+        <div className="bg-slate-50 border border-slate-200 rounded-md p-3 mb-6 animate-in slide-in-from-top-2">
+           <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase mb-2">
+              <History size={14} /> Recent S7 Activity (Session)
+           </div>
+           <div className="space-y-2">
+              {localEvents.slice(0, 3).map(evt => (
+                 <div key={evt.id} className="flex items-center gap-3 text-sm bg-white p-2 rounded border border-slate-100 shadow-sm">
+                    <span className="font-mono text-[10px] text-slate-400">{evt.timestamp}</span>
+                    <span className="font-bold text-slate-700 text-xs px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">{evt.actorRole}</span>
+                    <span className="text-slate-600 flex-1 truncate">{evt.message}</span>
+                    <CheckCircle2 size={14} className="text-green-500" />
+                 </div>
+              ))}
+           </div>
+        </div>
+      )}
+
+      {/* Next Step Guidance Panel */}
+      <div className={`bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm animate-in slide-in-from-top-3 ${!onNavigate ? 'hidden' : ''}`}>
+        <div className="flex items-start gap-3">
+          <div className="p-2 bg-blue-100 rounded-full text-blue-600">
+            <ArrowRight size={20} />
+          </div>
+          <div>
+            <h3 className="font-bold text-blue-900 text-sm">Next Recommended Action</h3>
+            <p className="text-xs text-blue-700 mt-1 max-w-lg">
+              {s7Context.packsCompletedCount >= 1
+                ? "Packs assembled. Proceed to Pack Review (S8) for final EOL validation." 
+                : "Line operational. Complete assembly tasks to generate output."}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 w-full sm:w-auto">
+           <button 
+             onClick={handleNavToControlTower} 
+             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-blue-200 text-blue-700 rounded-md text-xs font-bold hover:bg-blue-100 transition-colors"
+           >
+             <Radar size={14} /> Control Tower
+           </button>
+        </div>
+      </div>
+
       {/* Active Batch Banner */}
       <div className="bg-slate-900 text-white rounded-lg p-6 shadow-md shrink-0 border border-slate-700 relative overflow-hidden">
           {/* Background decoration */}
@@ -177,7 +336,7 @@ export const PackAssembly: React.FC = () => {
       </div>
 
       {/* Operator Workspace Grid */}
-      <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
+      <div className={`flex-1 grid grid-cols-12 gap-6 min-h-0 ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>
         
         {/* Left: Task Flow */}
         <div className="col-span-5 bg-white rounded-lg shadow-sm border border-industrial-border flex flex-col overflow-hidden">
@@ -245,7 +404,8 @@ export const PackAssembly: React.FC = () => {
               
               <div className="w-full max-w-md flex flex-col items-center">
                 <button 
-                  disabled={!completeState.enabled}
+                  onClick={handleCompletePack}
+                  disabled={!completeState.enabled || isSimulating}
                   className="w-full h-32 bg-brand-600 hover:bg-brand-700 active:scale-95 transition-all text-white rounded-2xl shadow-xl flex flex-col items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed group border-b-4 border-brand-800 disabled:border-slate-300 disabled:bg-slate-200 disabled:text-slate-400"
                   title={completeState.reason}
                 >
@@ -261,6 +421,7 @@ export const PackAssembly: React.FC = () => {
               <div className="flex gap-4 w-full max-w-md mt-2">
                  <div className="flex-1 flex flex-col">
                     <button 
+                        onClick={handleReportIssue}
                         disabled={!reportState.enabled}
                         className="w-full py-3 border-2 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         title={reportState.reason}
@@ -272,6 +433,7 @@ export const PackAssembly: React.FC = () => {
                  
                  <div className="flex-1 flex flex-col">
                     <button 
+                        onClick={handlePauseAssembly}
                         disabled={!pauseState.enabled}
                         className="w-full py-3 border-2 border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         title={pauseState.reason}
@@ -293,6 +455,7 @@ export const PackAssembly: React.FC = () => {
                <div className="flex items-center gap-4">
                   {/* Start/Resume Toggle */}
                   <button 
+                    onClick={playHandler}
                     disabled={!playAction.enabled}
                     title={playAction.reason}
                     className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white rounded font-bold text-xs disabled:opacity-50 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
@@ -304,6 +467,7 @@ export const PackAssembly: React.FC = () => {
                   {/* Abort */}
                   {abortState.enabled && (
                     <button 
+                      onClick={handleAbortSession}
                       className="flex items-center gap-2 px-3 py-1.5 bg-red-900/50 hover:bg-red-900 text-red-200 rounded font-bold text-xs transition-colors"
                       title="Abort Session (Supervisor Only)"
                     >
