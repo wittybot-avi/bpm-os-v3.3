@@ -34,3 +34,4 @@ Any patch applied to V3.3 must **NOT** violate the following:
 *   **StageStateBanner:** All S0–S17 screens must include the `StageStateBanner` component to indicate operational readiness.
 *   **PreconditionsPanel:** All S0–S17 screens must include the `PreconditionsPanel` to list required checks before action.
 *   **DisabledHint:** Actions disabled by demo/logic must display a `DisabledHint` explanation.
+*   **Context Handoff:** Active context handoff uses sessionStorage; no routing changes.

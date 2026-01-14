@@ -28,6 +28,7 @@ import {
   LifeBuoy
 } from 'lucide-react';
 import { GateNotice } from './GateNotice';
+import { setActiveContext } from '../utils/activeContext';
 
 interface RunbookDetailProps {
   runbookId: string | null;
@@ -421,6 +422,19 @@ export const RunbookDetail: React.FC<RunbookDetailProps> = ({ runbookId, onNavig
     ? runbook.stages.find(s => s.id === selectedStageId) 
     : runbook.stages[0];
 
+  const handleStageNavigation = () => {
+    // V33-OPS-FP-15: Set active context before navigating
+    setActiveContext({
+      runbookId: runbook.id,
+      runbookTitle: runbook.title,
+      stageId: activeStage?.id
+    });
+    
+    if (activeStage) {
+      onNavigate(activeStage.navTarget);
+    }
+  };
+
   return (
     <div className="space-y-6 h-full flex flex-col animate-in fade-in duration-300">
       
@@ -737,7 +751,7 @@ export const RunbookDetail: React.FC<RunbookDetailProps> = ({ runbookId, onNavig
                {/* Action / Nav */}
                <div className="mt-auto">
                   <button 
-                    onClick={() => onNavigate(activeStage.navTarget)}
+                    onClick={handleStageNavigation}
                     className="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-lg font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
                   >
                      <span>Go to Operational Screen</span>

@@ -102,3 +102,4 @@ TEMPLATE:
 | **V33-OPS-FP-12** | Stage Operational State Banner | 2026-01-16 01:30 (IST) | Added read-only Stage Operational State banner across S0–S17. | No |
 | **V33-OPS-FP-13** | Stage Preconditions Panel | 2026-01-16 01:45 (IST) | Added read-only Preconditions panel across S0–S17 for plant-like operational clarity. | No |
 | **V33-OPS-FP-14** | Disabled Action Explanations | 2026-01-16 02:00 (IST) | Added consistent 'DisabledHint' visual indicators for blocked/demo actions. | No |
+| **V33-OPS-FP-15** | Control Tower Deep Link Context | 2026-01-16 02:15 (IST) | Added minimal active context handoff (runbook → stage) via sessionStorage; frontend-only. | No |
