@@ -17,12 +17,17 @@ import {
   Zap,
   Activity,
   Database,
-  Thermometer
+  Thermometer,
+  Play,
+  FastForward,
+  LogOut,
+  Timer
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
 import { DisabledHint } from './DisabledHint';
 import { getMockS8Context, S8Context } from '../stages/s8/s8Contract';
+import { getS8ActionState, S8ActionId } from '../stages/s8/s8Guards';
 
 // Mock Data Types
 interface ReviewPack {
@@ -83,6 +88,9 @@ export const PackReview: React.FC = () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [s8Context] = useState<S8Context>(getMockS8Context());
 
+  // Helper for Guards
+  const getAction = (actionId: S8ActionId) => getS8ActionState(role, s8Context, actionId);
+
   // RBAC Access Check
   const hasAccess = 
     role === UserRole.SYSTEM_ADMIN || 
@@ -91,6 +99,12 @@ export const PackReview: React.FC = () => {
     role === UserRole.MANAGEMENT;
 
   const isReadOnly = role === UserRole.MANAGEMENT;
+
+  // Guard States
+  const startAgingState = getAction('START_AGING_CYCLE');
+  const startSoakState = getAction('START_SOAK_CYCLE');
+  const completeSoakState = getAction('COMPLETE_SOAK');
+  const releaseState = getAction('RELEASE_FROM_AGING');
 
   if (!hasAccess) {
     return (
@@ -214,7 +228,69 @@ export const PackReview: React.FC = () => {
 
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             
-            {/* 1. Summary Cards */}
+            {/* 1. Aging & Soak Operations (NEW SECTION) */}
+            <section className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+               <h3 className="text-sm font-bold text-blue-900 uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <Timer size={16} />
+                  Aging & Soak Process Control
+               </h3>
+               
+               <div className="flex gap-4">
+                  {/* Start Aging */}
+                  <div className="flex-1">
+                     <button 
+                       disabled={!startAgingState.enabled}
+                       className="w-full flex flex-col items-center justify-center p-3 bg-white border border-blue-200 rounded-md hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white text-blue-800"
+                       title={startAgingState.reason}
+                     >
+                        <Play size={20} className="mb-1" />
+                        <span className="text-xs font-bold">Start Aging</span>
+                     </button>
+                     {!startAgingState.enabled && <DisabledHint reason={startAgingState.reason || 'Blocked'} className="justify-center mt-1" />}
+                  </div>
+
+                  {/* Start Soak */}
+                  <div className="flex-1">
+                     <button 
+                       disabled={!startSoakState.enabled}
+                       className="w-full flex flex-col items-center justify-center p-3 bg-white border border-blue-200 rounded-md hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white text-blue-800"
+                       title={startSoakState.reason}
+                     >
+                        <Thermometer size={20} className="mb-1" />
+                        <span className="text-xs font-bold">Start Soak</span>
+                     </button>
+                     {!startSoakState.enabled && <DisabledHint reason={startSoakState.reason || 'Blocked'} className="justify-center mt-1" />}
+                  </div>
+
+                  {/* Complete Soak */}
+                  <div className="flex-1">
+                     <button 
+                       disabled={!completeSoakState.enabled}
+                       className="w-full flex flex-col items-center justify-center p-3 bg-white border border-blue-200 rounded-md hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white text-blue-800"
+                       title={completeSoakState.reason}
+                     >
+                        <FastForward size={20} className="mb-1" />
+                        <span className="text-xs font-bold">Complete Soak</span>
+                     </button>
+                     {!completeSoakState.enabled && <DisabledHint reason={completeSoakState.reason || 'Blocked'} className="justify-center mt-1" />}
+                  </div>
+
+                  {/* Release */}
+                  <div className="flex-1">
+                     <button 
+                       disabled={!releaseState.enabled}
+                       className="w-full flex flex-col items-center justify-center p-3 bg-green-600 border border-green-700 rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:border-slate-300 disabled:text-slate-400 text-white"
+                       title={releaseState.reason}
+                     >
+                        <LogOut size={20} className="mb-1" />
+                        <span className="text-xs font-bold">Release Batch</span>
+                     </button>
+                     {!releaseState.enabled && <DisabledHint reason={releaseState.reason || 'Blocked'} className="justify-center mt-1" />}
+                  </div>
+               </div>
+            </section>
+
+            {/* 2. Summary Cards */}
             <section className="grid grid-cols-3 gap-4">
                 <div className="p-4 bg-slate-50 rounded border border-slate-200 flex flex-col gap-2">
                     <div className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
@@ -247,7 +323,7 @@ export const PackReview: React.FC = () => {
                 </div>
             </section>
 
-            {/* 2. Reviewer Notes */}
+            {/* 3. Reviewer Notes */}
             <section>
                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-2 flex items-center gap-2">
                     <FileText size={16} className="text-brand-500" />
@@ -263,7 +339,7 @@ export const PackReview: React.FC = () => {
                 />
             </section>
 
-             {/* 3. Decision Panel */}
+             {/* 4. Decision Panel */}
             <section className="bg-slate-50 p-6 rounded-lg border border-slate-200">
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2">
                     <Stamp size={16} className="text-slate-600" />
