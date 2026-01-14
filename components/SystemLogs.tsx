@@ -12,9 +12,15 @@ import {
   User,
   Box,
   Archive,
-  Database
+  Database,
+  Briefcase,
+  Play,
+  Save,
+  Lock
 } from 'lucide-react';
 import { getMockS17Context, S17Context } from '../stages/s17/s17Contract';
+import { getS17ActionState, S17ActionId } from '../stages/s17/s17Guards';
+import { DisabledHint } from './DisabledHint';
 
 interface LogEntry {
   id: string;
@@ -86,6 +92,16 @@ export const SystemLogs: React.FC = () => {
   // S17 Context
   const [s17Context] = useState<S17Context>(getMockS17Context());
 
+  // Helper for Guards
+  const getAction = (actionId: S17ActionId) => getS17ActionState(role, s17Context, actionId);
+
+  // Mock Handlers (No-op for now)
+  const handlePrepareArchive = () => console.log('Prepare Archive clicked');
+  const handleStartArchive = () => console.log('Start Archive clicked');
+  const handleCompleteArchive = () => console.log('Complete Archive clicked');
+  const handleExportPackage = () => console.log('Export Package clicked');
+  const handleCloseProgram = () => console.log('Close Program clicked');
+
   const isOperator = role === UserRole.OPERATOR;
   const isAuditor = role === UserRole.MANAGEMENT || role === UserRole.COMPLIANCE;
 
@@ -102,6 +118,13 @@ export const SystemLogs: React.FC = () => {
       return true;
     });
   }, [filterCategory, filterSeverity, isOperator]);
+
+  // Pre-calculate action states
+  const prepareState = getAction('PREPARE_ARCHIVE');
+  const startState = getAction('START_ARCHIVE');
+  const completeState = getAction('COMPLETE_ARCHIVE');
+  const exportState = getAction('EXPORT_CLOSURE_PACKAGE');
+  const closeState = getAction('CLOSE_PROGRAM');
 
   return (
     <div className="space-y-6 h-full flex flex-col animate-in fade-in duration-300">
@@ -136,6 +159,81 @@ export const SystemLogs: React.FC = () => {
             <span>Batches: {s17Context.archiveBatchesCount}</span>
           </div>
         </div>
+      </div>
+
+      {/* Archive Operations Toolbar */}
+      <div className="bg-white p-4 rounded-lg shadow-sm border border-industrial-border flex flex-wrap items-center gap-4">
+         <div className="flex items-center gap-3 mr-auto">
+            <div className="p-2 bg-slate-100 text-slate-600 rounded border border-slate-200">
+               <Briefcase size={20} />
+            </div>
+            <div>
+               <h3 className="font-bold text-slate-800 text-sm">Closure Operations</h3>
+               <p className="text-xs text-slate-500">System Archival & Program End</p>
+            </div>
+         </div>
+
+         {/* Prepare */}
+         <div className="flex flex-col items-center">
+            <button 
+                onClick={handlePrepareArchive}
+                disabled={!prepareState.enabled}
+                title={prepareState.reason}
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-bold transition-colors"
+            >
+                <Database size={14} /> Prepare Data
+            </button>
+         </div>
+
+         {/* Start */}
+         <div className="flex flex-col items-center">
+            <button 
+                onClick={handleStartArchive}
+                disabled={!startState.enabled}
+                title={startState.reason}
+                className="flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 text-xs font-bold transition-colors"
+            >
+                <Play size={14} /> Start Archive
+            </button>
+         </div>
+
+         {/* Complete */}
+         <div className="flex flex-col items-center">
+            <button 
+                onClick={handleCompleteArchive}
+                disabled={!completeState.enabled}
+                title={completeState.reason}
+                className="flex items-center gap-2 px-3 py-2 bg-purple-50 text-purple-700 border border-purple-200 rounded hover:bg-purple-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 text-xs font-bold transition-colors"
+            >
+                <Save size={14} /> Complete
+            </button>
+         </div>
+
+         <div className="w-px h-8 bg-slate-200 mx-2"></div>
+
+         {/* Export Package */}
+         <div className="flex flex-col items-center">
+            <button 
+                onClick={handleExportPackage}
+                disabled={!exportState.enabled}
+                title={exportState.reason}
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-bold transition-colors"
+            >
+                <Download size={14} /> Export Package
+            </button>
+         </div>
+
+         {/* Close Program */}
+         <div className="flex flex-col items-center">
+            <button 
+                onClick={handleCloseProgram}
+                disabled={!closeState.enabled}
+                title={closeState.reason}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-800 border border-slate-900 text-white rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 text-xs font-bold transition-colors shadow-sm"
+            >
+                <Lock size={14} /> Close Program
+            </button>
+         </div>
       </div>
 
       {/* Filter Bar */}
