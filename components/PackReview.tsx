@@ -14,11 +14,15 @@ import {
   ClipboardList,
   ShieldCheck,
   History,
-  Zap
+  Zap,
+  Activity,
+  Database,
+  Thermometer
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
 import { DisabledHint } from './DisabledHint';
+import { getMockS8Context, S8Context } from '../stages/s8/s8Contract';
 
 // Mock Data Types
 interface ReviewPack {
@@ -75,6 +79,10 @@ export const PackReview: React.FC = () => {
   const [selectedPack, setSelectedPack] = useState<ReviewPack>(PACK_QUEUE[0]);
   const [notes, setNotes] = useState('');
 
+  // S8 Context (Read-Only Mock)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [s8Context] = useState<S8Context>(getMockS8Context());
+
   // RBAC Access Check
   const hasAccess = 
     role === UserRole.SYSTEM_ADMIN || 
@@ -104,9 +112,25 @@ export const PackReview: React.FC = () => {
            </div>
            <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
              <FileCheck className="text-brand-600" size={24} />
-             Pack Review & Approval (S8)
+             Pack Review (Aging & Soak) - S8
            </h1>
-           <p className="text-slate-500 text-sm mt-1">End-of-Line (EOL) validation and final release decision.</p>
+           <p className="text-slate-500 text-sm mt-1">End-of-Line (EOL) aging, soak testing, and final release decision.</p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex items-center gap-2">
+             <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                 s8Context.agingStatus === 'AGING' || s8Context.agingStatus === 'SOAKING' ? 'bg-blue-100 text-blue-700 animate-pulse' :
+                 'bg-slate-100 text-slate-600'
+             }`}>
+                <Thermometer size={14} /> Status: {s8Context.agingStatus}
+             </span>
+          </div>
+          <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2 mt-1">
+            <Database size={10} />
+            <span>Aging: {s8Context.packsUnderAgingCount}</span>
+            <span className="text-slate-300">|</span>
+            <span className="text-green-600 font-bold">Done: {s8Context.packsCompletedAgingCount}</span>
+          </div>
         </div>
       </div>
 
