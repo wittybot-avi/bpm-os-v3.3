@@ -123,3 +123,4 @@ TEMPLATE:
 | **V33-S4-PP-03** | S4 Simulated Actions | 2026-01-16 06:45 (IST) | S4 actions simulate batch planning lifecycle; audit events emitted (frontend-only). | Yes |
 | **V33-S4-PP-04** | S4 Workflow Navigation Wiring | 2026-01-16 07:00 (IST) | Added S4 Next Step navigation panel guiding flow to S5 Module Assembly. | Yes |
 | **V33-S5-BP-01** | S5 Stage Contract Stub | 2026-01-16 07:15 (IST) | Added S5 module assembly context contract + mock data scaffold; S5 screen reads it (read-only). | No |
+| **V33-S5-FP-02** | S5 State Guard by Role | 2026-01-16 07:30 (IST) | Added S5 role/status UI guards with blocked reasons; no workflow change. | No |

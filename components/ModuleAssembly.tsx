@@ -12,12 +12,14 @@ import {
   Box,
   Cpu,
   Activity,
-  Database
+  Database,
+  ArrowRight
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
 import { DisabledHint } from './DisabledHint';
 import { getMockS5Context, S5Context } from '../stages/s5/s5Contract';
+import { getS5ActionState, S5ActionId } from '../stages/s5/s5Guards';
 
 // Mock Data Types
 interface ActiveBatch {
@@ -66,6 +68,23 @@ export const ModuleAssembly: React.FC = () => {
   // S5 Context (Read-Only Mock)
   const [s5Context] = useState<S5Context>(getMockS5Context());
 
+  // Helper to resolve action state
+  const getAction = (actionId: S5ActionId) => getS5ActionState(role, s5Context, actionId);
+
+  // Pre-calculate action states
+  // Station Controls
+  const startState = getAction('START_ASSEMBLY');
+  const pauseState = getAction('PAUSE_ASSEMBLY');
+  const resumeState = getAction('RESUME_ASSEMBLY');
+  
+  // Determine effective play button state (Start or Resume)
+  const playButtonState = s5Context.assemblyStatus === 'PAUSED' ? resumeState : startState;
+  const isPlayApplicable = s5Context.assemblyStatus === 'IDLE' || s5Context.assemblyStatus === 'PAUSED';
+
+  // Completion
+  const completeState = getAction('COMPLETE_MODULE');
+  const handoverState = getAction('HANDOVER_TO_QA');
+
   // RBAC Access Check
   const hasAccess = 
     role === UserRole.SYSTEM_ADMIN || 
@@ -102,8 +121,12 @@ export const ModuleAssembly: React.FC = () => {
         
         <div className="flex flex-col items-end gap-1">
           <div className="flex items-center gap-2">
-               <span className="flex items-center gap-1.5 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold uppercase tracking-wider animate-pulse">
-                  <Activity size={14} /> Line Active
+               <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                 s5Context.assemblyStatus === 'ASSEMBLING' ? 'bg-green-100 text-green-700 animate-pulse' :
+                 s5Context.assemblyStatus === 'PAUSED' ? 'bg-amber-100 text-amber-700' :
+                 'bg-slate-100 text-slate-600'
+               }`}>
+                  <Activity size={14} /> Line {s5Context.assemblyStatus}
                </span>
           </div>
           <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2 mt-1">
@@ -194,22 +217,22 @@ export const ModuleAssembly: React.FC = () => {
               <div className="flex gap-6 w-full max-w-lg">
                  <div className="flex-1 flex flex-col items-center">
                     <button 
-                        disabled={isReadOnly}
-                        className="w-full h-24 bg-green-600 hover:bg-green-700 active:scale-95 transition-all text-white rounded-xl shadow-lg flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group"
-                        title={isReadOnly ? "Read Only" : "Demo Mode"}
+                        disabled={!completeState.enabled}
+                        className="w-full h-24 bg-green-600 hover:bg-green-700 active:scale-95 transition-all text-white rounded-xl shadow-lg flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group disabled:bg-slate-200 disabled:text-slate-400"
+                        title={completeState.reason}
                     >
                         <CheckSquare size={32} className="group-hover:scale-110 transition-transform" />
                         <span className="font-bold text-lg">ASSEMBLY OK</span>
-                        <span className="text-[10px] opacity-75">Increment Counter (Disabled)</span>
+                        <span className="text-[10px] opacity-75">Increment Counter</span>
                     </button>
-                    <DisabledHint reason="Calibration Expired" nextActionHint="Check Torque Tool" className="mt-2 text-center" />
+                    {!completeState.enabled && <DisabledHint reason={completeState.reason || 'Blocked'} className="mt-2 text-center" />}
                  </div>
                  
                  <div className="flex-1 flex flex-col items-center">
                     <button 
-                        disabled={isReadOnly}
-                        className="w-full h-24 bg-amber-500 hover:bg-amber-600 active:scale-95 transition-all text-white rounded-xl shadow-lg flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group"
-                        title={isReadOnly ? "Read Only" : "Demo Mode"}
+                        disabled
+                        className="w-full h-24 bg-amber-500 hover:bg-amber-600 active:scale-95 transition-all text-white rounded-xl shadow-lg flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group disabled:bg-slate-200 disabled:text-slate-400"
+                        title="Rework is not enabled in this demo scenario"
                     >
                         <RotateCcw size={32} className="group-hover:rotate-[-45deg] transition-transform" />
                         <span className="font-bold text-lg">REWORK</span>
@@ -219,8 +242,9 @@ export const ModuleAssembly: React.FC = () => {
               </div>
 
               <button 
-                  disabled={isReadOnly}
-                  className="mt-2 text-red-500 hover:text-red-700 font-medium flex items-center gap-2 border border-red-200 hover:bg-red-50 px-6 py-2 rounded-lg transition-colors disabled:opacity-50"
+                  disabled
+                  className="mt-2 text-red-500 hover:text-red-700 font-medium flex items-center gap-2 border border-red-200 hover:bg-red-50 px-6 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Quality Alert system not connected"
               >
                   <AlertTriangle size={18} />
                   <span>Raise Quality Alert (Hold)</span>
@@ -238,13 +262,37 @@ export const ModuleAssembly: React.FC = () => {
                      <div className="text-xs text-slate-500">Machine interlocks active</div>
                   </div>
                </div>
-               <div className="flex gap-2">
-                  <button className="bg-slate-100 text-slate-400 p-3 rounded-md cursor-not-allowed" disabled>
-                     <Pause size={20} fill="currentColor" />
-                  </button>
-                  <button className="bg-green-100 text-green-600 p-3 rounded-md cursor-not-allowed border border-green-200" disabled>
-                     <Play size={20} fill="currentColor" />
-                  </button>
+               
+               <div className="flex gap-4 items-center">
+                  <div className="flex gap-2">
+                      <button 
+                        className="bg-slate-100 text-slate-600 p-3 rounded-md hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-300" 
+                        disabled={!pauseState.enabled}
+                        title={pauseState.reason || "Pause Line"}
+                      >
+                        <Pause size={20} fill="currentColor" />
+                      </button>
+                      <button 
+                        className="bg-green-100 text-green-600 p-3 rounded-md border border-green-200 hover:bg-green-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-300 disabled:border-slate-200" 
+                        disabled={!playButtonState.enabled}
+                        title={playButtonState.reason || "Start/Resume Line"}
+                      >
+                        <Play size={20} fill="currentColor" />
+                      </button>
+                  </div>
+                  
+                  {/* Handover Action (Conditional) */}
+                  {handoverState.enabled && (
+                    <div className="pl-4 border-l border-slate-200">
+                       <button 
+                          className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-bold flex items-center gap-2 hover:bg-blue-700 shadow-sm"
+                          title="Release batch to QA"
+                       >
+                          <span>Handover</span>
+                          <ArrowRight size={16} />
+                       </button>
+                    </div>
+                  )}
                </div>
            </div>
 
