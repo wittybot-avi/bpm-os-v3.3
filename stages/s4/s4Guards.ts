@@ -51,7 +51,8 @@ export const getS4ActionState = (role: UserRole, context: S4Context, action: S4A
 
     case 'LOCK_BATCH_PLAN':
       if (!isDirector) return { enabled: false, reason: 'Requires Plant Director Role' };
-      if (context.planningStatus !== 'PLANNED') return { enabled: false, reason: 'Plan not ready for lock' };
+      // Correction: Locking is only possible when we are currently PLANNING.
+      if (context.planningStatus !== 'PLANNING') return { enabled: false, reason: 'Plan not ready for lock (Must be in Planning)' };
       return { enabled: true };
 
     case 'RELEASE_BATCHES_TO_LINE':

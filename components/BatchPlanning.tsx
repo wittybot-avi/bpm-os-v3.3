@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { UserContext, UserRole } from '../types';
 import { 
   ShieldAlert, 
@@ -12,13 +12,16 @@ import {
   Timer, 
   Boxes,
   Database,
-  Edit3
+  Edit3,
+  History,
+  CheckCircle2
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
 import { DisabledHint } from './DisabledHint';
 import { getMockS4Context, S4Context } from '../stages/s4/s4Contract';
 import { getS4ActionState, S4ActionId } from '../stages/s4/s4Guards';
+import { emitAuditEvent, getAuditEvents, AuditEvent } from '../utils/auditEvents';
 
 // Mock Data Types
 interface PlanningBatch {
@@ -81,11 +84,101 @@ export const BatchPlanning: React.FC = () => {
   const { role } = useContext(UserContext);
   const [selectedBatch, setSelectedBatch] = useState<PlanningBatch>(MOCK_BATCHES[0]);
   
-  // S4 Context (Read-Only Mock)
-  const [s4Context] = useState<S4Context>(getMockS4Context());
+  // S4 Context & Event State
+  const [s4Context, setS4Context] = useState<S4Context>(getMockS4Context());
+  const [localEvents, setLocalEvents] = useState<AuditEvent[]>([]);
+  const [isSimulating, setIsSimulating] = useState(false);
+
+  // Load events on mount
+  useEffect(() => {
+    setLocalEvents(getAuditEvents().filter(e => e.stageId === 'S4'));
+  }, []);
 
   // Helper to resolve action state
   const getAction = (actionId: S4ActionId) => getS4ActionState(role, s4Context, actionId);
+
+  // Action Handlers
+  const handleCreateBatch = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      setS4Context(prev => ({
+        ...prev,
+        plannedBatchCount: prev.plannedBatchCount + 1,
+        planningStatus: 'PLANNING',
+        lastBatchPlannedAt: now
+      }));
+      
+      const evt = emitAuditEvent({
+        stageId: 'S4',
+        actionId: 'CREATE_BATCH_PLAN',
+        actorRole: role,
+        message: 'Initialized new production batch draft'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleEditBatch = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      setS4Context(prev => ({
+        ...prev,
+        lastBatchPlannedAt: now
+      }));
+      
+      const evt = emitAuditEvent({
+        stageId: 'S4',
+        actionId: 'EDIT_BATCH_PLAN',
+        actorRole: role,
+        message: 'Updated batch schedule parameters'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 800);
+  };
+
+  const handleLockBatch = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS4Context(prev => ({
+        ...prev,
+        planningStatus: 'PLANNED'
+      }));
+      
+      const evt = emitAuditEvent({
+        stageId: 'S4',
+        actionId: 'LOCK_BATCH_PLAN',
+        actorRole: role,
+        message: 'Locked production plan. Ready for release.'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 800);
+  };
+
+  const handleReleaseBatch = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS4Context(prev => ({
+        ...prev,
+        activeBatchCount: prev.activeBatchCount + prev.plannedBatchCount,
+        plannedBatchCount: 0,
+        planningStatus: 'NOT_PLANNED'
+      }));
+      
+      const evt = emitAuditEvent({
+        stageId: 'S4',
+        actionId: 'RELEASE_BATCHES_TO_LINE',
+        actorRole: role,
+        message: 'Released batches to manufacturing execution (S5)'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 1000);
+  };
 
   // Pre-calculate action states
   const createState = getAction('CREATE_BATCH_PLAN');
@@ -129,7 +222,8 @@ export const BatchPlanning: React.FC = () => {
           <div className="flex gap-2">
              <button 
               className="bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 px-3 py-2 rounded-md font-medium text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={!editState.enabled}
+              disabled={!editState.enabled || isSimulating}
+              onClick={handleEditBatch}
               title={editState.reason}
             >
               <Edit3 size={16} />
@@ -137,7 +231,8 @@ export const BatchPlanning: React.FC = () => {
             </button>
              <button 
               className="bg-brand-600 text-white px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400"
-              disabled={!createState.enabled}
+              disabled={!createState.enabled || isSimulating}
+              onClick={handleCreateBatch}
               title={createState.reason}
             >
               <Plus size={16} />
@@ -163,8 +258,27 @@ export const BatchPlanning: React.FC = () => {
       <StageStateBanner stageId="S4" />
       <PreconditionsPanel stageId="S4" />
 
+      {/* Recent Local Activity Panel */}
+      {localEvents.length > 0 && (
+        <div className="bg-slate-50 border border-slate-200 rounded-md p-3 mb-6 animate-in slide-in-from-top-2">
+           <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase mb-2">
+              <History size={14} /> Recent S4 Activity (Session)
+           </div>
+           <div className="space-y-2">
+              {localEvents.slice(0, 3).map(evt => (
+                 <div key={evt.id} className="flex items-center gap-3 text-sm bg-white p-2 rounded border border-slate-100 shadow-sm">
+                    <span className="font-mono text-[10px] text-slate-400">{evt.timestamp}</span>
+                    <span className="font-bold text-slate-700 text-xs px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">{evt.actorRole}</span>
+                    <span className="text-slate-600 flex-1 truncate">{evt.message}</span>
+                    <CheckCircle2 size={14} className="text-green-500" />
+                 </div>
+              ))}
+           </div>
+        </div>
+      )}
+
       {/* Main Grid */}
-      <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
+      <div className={`flex-1 grid grid-cols-12 gap-6 min-h-0 ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>
         
         {/* Left Col: Batch List */}
         <div className="col-span-4 bg-white rounded-lg shadow-sm border border-industrial-border flex flex-col overflow-hidden">
@@ -294,7 +408,8 @@ export const BatchPlanning: React.FC = () => {
                 <div className="flex gap-4">
                     <div className="flex-1 flex flex-col">
                         <button 
-                            disabled={!lockState.enabled} 
+                            disabled={!lockState.enabled}
+                            onClick={handleLockBatch}
                             className="w-full bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
                             title={lockState.reason}
                         >
@@ -306,7 +421,8 @@ export const BatchPlanning: React.FC = () => {
                     
                     <div className="flex-1 flex flex-col">
                         <button 
-                            disabled={!releaseState.enabled} 
+                            disabled={!releaseState.enabled}
+                            onClick={handleReleaseBatch}
                             className="w-full bg-brand-600 text-white py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 shadow-sm hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400"
                             title={releaseState.reason}
                         >
