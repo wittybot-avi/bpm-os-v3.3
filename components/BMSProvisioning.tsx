@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { UserContext, UserRole } from '../types';
 import { 
   ShieldAlert, 
@@ -13,11 +13,16 @@ import {
   Battery,
   AlertTriangle,
   Radio,
-  Database
+  Database,
+  Play,
+  Save,
+  Server
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
+import { DisabledHint } from './DisabledHint';
 import { getMockS10Context, S10Context } from '../stages/s10/s10Contract';
+import { getS10ActionState, S10ActionId } from '../stages/s10/s10Guards';
 
 // Mock Data Types
 interface ProvisioningPack {
@@ -62,18 +67,27 @@ export const BMSProvisioning: React.FC = () => {
   const [selectedPack, setSelectedPack] = useState<ProvisioningPack>(PROVISIONING_QUEUE[0]);
   const [bmsSerial, setBmsSerial] = useState('');
 
-  // S10 Context (Read-Only)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // S10 Context (Read-Only Scaffold)
   const [s10Context] = useState<S10Context>(getMockS10Context());
+
+  // Helper for Guards
+  const getAction = (actionId: S10ActionId) => getS10ActionState(role, s10Context, actionId);
+
+  // Guard States
+  const startSessionState = getAction('START_SESSION');
+  const flashFirmwareState = getAction('FLASH_FIRMWARE');
+  const verifyConfigState = getAction('VERIFY_CONFIG');
+  const completeProvisioningState = getAction('COMPLETE_PROVISIONING');
 
   // RBAC Access Check
   const hasAccess = 
     role === UserRole.SYSTEM_ADMIN || 
     role === UserRole.ENGINEERING || 
     role === UserRole.SUPERVISOR || 
+    role === UserRole.OPERATOR ||
     role === UserRole.MANAGEMENT;
 
-  const isReadOnly = role === UserRole.MANAGEMENT;
+  const isAuditor = role === UserRole.MANAGEMENT;
 
   if (!hasAccess) {
     return (
@@ -100,8 +114,8 @@ export const BMSProvisioning: React.FC = () => {
            <p className="text-slate-500 text-sm mt-1">Firmware flashing, configuration injection, and digital identity binding (Trace).</p>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <div className="flex items-center gap-2 bg-slate-100 px-3 py-1 rounded text-xs font-mono text-slate-600 border border-slate-200">
-               <Wifi size={14} className={s10Context.firmwareRepoStatus === 'ONLINE' ? 'text-green-500' : 'text-red-500'} />
+          <div className={`flex items-center gap-2 px-3 py-1 rounded text-xs font-mono border ${s10Context.firmwareRepoStatus === 'ONLINE' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+               <Wifi size={14} />
                <span>REPO: {s10Context.firmwareRepoStatus}</span>
           </div>
           <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2 mt-1">
@@ -175,6 +189,19 @@ export const BMSProvisioning: React.FC = () => {
                 </div>
               </div>
             </div>
+            {/* Start Button */}
+            <div className="flex flex-col items-end">
+               <button 
+                 disabled={!startSessionState.enabled}
+                 className="bg-blue-600 text-white px-4 py-2 rounded-md font-bold text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex items-center gap-2"
+                 title={startSessionState.reason}
+               >
+                 <Play size={16} /> Start Session
+               </button>
+               {!startSessionState.enabled && (
+                  <DisabledHint reason={startSessionState.reason || 'Blocked'} className="mt-1" />
+               )}
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-8">
@@ -197,7 +224,7 @@ export const BMSProvisioning: React.FC = () => {
                                 placeholder="Scan BMS Barcode..."
                                 value={bmsSerial}
                                 onChange={(e) => setBmsSerial(e.target.value)}
-                                disabled={isReadOnly}
+                                disabled={isAuditor}
                             />
                             <Radio size={14} className="absolute left-3 top-3 text-slate-400" />
                         </div>
@@ -208,7 +235,7 @@ export const BMSProvisioning: React.FC = () => {
                         <div className="relative">
                             <select 
                                 className="w-full text-sm p-2 pl-9 border border-slate-300 rounded focus:outline-none focus:border-brand-500 appearance-none bg-white"
-                                disabled={isReadOnly}
+                                disabled={isAuditor}
                             >
                                 <option>v2.4.1 (Stable) - Recommended</option>
                                 <option>v2.4.0 (Previous)</option>
@@ -220,34 +247,55 @@ export const BMSProvisioning: React.FC = () => {
                 </div>
             </section>
 
-            {/* 2. Provisioning Actions */}
+            {/* 2. Provisioning Actions (Guard-Controlled) */}
             <section>
                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2">
                     <Link size={16} className="text-brand-500" />
                     Commissioning Actions
                 </h3>
                 
-                <div className="flex gap-4 items-center">
-                    <button 
-                        disabled={isReadOnly || true} 
-                        className="flex-1 bg-brand-600 text-white py-4 rounded-lg font-bold text-base flex flex-col items-center justify-center gap-2 opacity-50 cursor-not-allowed shadow-sm hover:bg-brand-700"
-                        title="Demo Mode: Hardware interface disabled"
-                    >
-                        <div className="flex items-center gap-2">
-                            <Download size={20} />
-                            <span>FLASH & BIND</span>
-                        </div>
-                        <span className="text-[10px] font-normal opacity-80">Write Config & Lock Identity</span>
-                    </button>
+                <div className="grid grid-cols-3 gap-4">
+                    {/* Flash Firmware */}
+                    <div className="flex flex-col">
+                      <button 
+                          disabled={!flashFirmwareState.enabled} 
+                          className="w-full h-24 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg font-bold text-sm flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 shadow-sm"
+                          title={flashFirmwareState.reason}
+                      >
+                          <Download size={24} className={flashFirmwareState.enabled ? "text-blue-500" : "text-slate-300"} />
+                          <span>Flash Firmware</span>
+                          <span className="text-[10px] font-normal opacity-75">Write Binary</span>
+                      </button>
+                      {!flashFirmwareState.enabled && <DisabledHint reason={flashFirmwareState.reason || 'Blocked'} className="mx-auto mt-1" />}
+                    </div>
 
-                    <button 
-                        disabled={isReadOnly || true} 
-                        className="w-1/3 bg-white border border-slate-300 text-slate-500 py-4 rounded-lg font-bold text-sm flex flex-col items-center justify-center gap-1 opacity-60 cursor-not-allowed"
-                         title="Demo Mode: Hardware interface disabled"
-                    >
-                        <Wifi size={20} />
-                        <span>Ping BMS</span>
-                    </button>
+                    {/* Verify Config */}
+                    <div className="flex flex-col">
+                      <button 
+                          disabled={!verifyConfigState.enabled} 
+                          className="w-full h-24 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg font-bold text-sm flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 shadow-sm"
+                          title={verifyConfigState.reason}
+                      >
+                          <Server size={24} className={verifyConfigState.enabled ? "text-purple-500" : "text-slate-300"} />
+                          <span>Verify Config</span>
+                          <span className="text-[10px] font-normal opacity-75">Read-back Check</span>
+                      </button>
+                      {!verifyConfigState.enabled && <DisabledHint reason={verifyConfigState.reason || 'Blocked'} className="mx-auto mt-1" />}
+                    </div>
+
+                    {/* Complete & Release */}
+                    <div className="flex flex-col">
+                      <button 
+                          disabled={!completeProvisioningState.enabled} 
+                          className="w-full h-24 bg-green-600 text-white hover:bg-green-700 rounded-lg font-bold text-sm flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 shadow-sm"
+                          title={completeProvisioningState.reason}
+                      >
+                          <CheckCircle2 size={24} />
+                          <span>Finalize</span>
+                          <span className="text-[10px] font-normal opacity-75">Lock Identity</span>
+                      </button>
+                      {!completeProvisioningState.enabled && <DisabledHint reason={completeProvisioningState.reason || 'Blocked'} className="mx-auto mt-1" />}
+                    </div>
                 </div>
             </section>
             
@@ -261,15 +309,16 @@ export const BMSProvisioning: React.FC = () => {
                     <div className="flex-1 h-2 bg-slate-200 rounded overflow-hidden">
                         <div className={`h-full bg-green-500 transition-all duration-500 ${
                             s10Context.provisioningStatus === 'COMPLETED' ? 'w-full' :
-                            s10Context.provisioningStatus === 'PROVISIONING' ? 'w-1/2' :
+                            s10Context.provisioningStatus === 'PROVISIONING' ? 'w-1/3' :
+                            s10Context.provisioningStatus === 'VERIFYING' ? 'w-2/3' :
                             'w-0'
                         }`}></div>
                     </div>
                     <div className="flex gap-4 text-[10px] text-slate-400 font-mono">
-                        <span className="flex items-center gap-1"><CheckCircle2 size={10} /> Identity</span>
-                        <span className="flex items-center gap-1"><CheckCircle2 size={10} /> Flash</span>
-                        <span className="flex items-center gap-1"><CheckCircle2 size={10} /> Config</span>
-                        <span className="flex items-center gap-1"><CheckCircle2 size={10} /> Bind</span>
+                        <span className={`flex items-center gap-1 ${s10Context.provisioningStatus !== 'IDLE' ? 'text-slate-600' : ''}`}><CheckCircle2 size={10} /> Start</span>
+                        <span className={`flex items-center gap-1 ${['PROVISIONING', 'VERIFYING', 'COMPLETED'].includes(s10Context.provisioningStatus) ? 'text-slate-600' : ''}`}><CheckCircle2 size={10} /> Flash</span>
+                        <span className={`flex items-center gap-1 ${['VERIFYING', 'COMPLETED'].includes(s10Context.provisioningStatus) ? 'text-slate-600' : ''}`}><CheckCircle2 size={10} /> Verify</span>
+                        <span className={`flex items-center gap-1 ${s10Context.provisioningStatus === 'COMPLETED' ? 'text-slate-600' : ''}`}><CheckCircle2 size={10} /> Bind</span>
                     </div>
                  </div>
             </section>
