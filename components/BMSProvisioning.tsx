@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { UserContext, UserRole } from '../types';
+import { UserContext, UserRole, NavView } from '../types';
 import { 
   ShieldAlert, 
   Cpu, 
@@ -16,13 +16,17 @@ import {
   Database,
   Play,
   Save,
-  Server
+  Server,
+  History,
+  ArrowRight,
+  Radar
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
 import { DisabledHint } from './DisabledHint';
 import { getMockS10Context, S10Context } from '../stages/s10/s10Contract';
 import { getS10ActionState, S10ActionId } from '../stages/s10/s10Guards';
+import { emitAuditEvent, getAuditEvents, AuditEvent } from '../utils/auditEvents';
 
 // Mock Data Types
 interface ProvisioningPack {
@@ -62,22 +66,130 @@ const PROVISIONING_QUEUE: ProvisioningPack[] = [
   }
 ];
 
-export const BMSProvisioning: React.FC = () => {
+interface BMSProvisioningProps {
+  onNavigate?: (view: NavView) => void;
+}
+
+export const BMSProvisioning: React.FC<BMSProvisioningProps> = ({ onNavigate }) => {
   const { role } = useContext(UserContext);
   const [selectedPack, setSelectedPack] = useState<ProvisioningPack>(PROVISIONING_QUEUE[0]);
   const [bmsSerial, setBmsSerial] = useState('');
 
-  // S10 Context (Read-Only Scaffold)
-  const [s10Context] = useState<S10Context>(getMockS10Context());
+  // S10 Context & Event State
+  const [s10Context, setS10Context] = useState<S10Context>(getMockS10Context());
+  const [localEvents, setLocalEvents] = useState<AuditEvent[]>([]);
+  const [isSimulating, setIsSimulating] = useState(false);
+
+  // Load events on mount
+  useEffect(() => {
+    setLocalEvents(getAuditEvents().filter(e => e.stageId === 'S10'));
+  }, []);
 
   // Helper for Guards
   const getAction = (actionId: S10ActionId) => getS10ActionState(role, s10Context, actionId);
+
+  // Action Handlers
+  const handleStartSession = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS10Context(prev => ({
+        ...prev,
+        provisioningStatus: 'PROVISIONING',
+        packsInProgressCount: prev.packsInProgressCount + 1,
+        packsQueuedCount: Math.max(0, prev.packsQueuedCount - 1)
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S10',
+        actionId: 'START_SESSION',
+        actorRole: role,
+        message: `Provisioning session started for ${selectedPack.packId}`
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleFlashFirmware = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS10Context(prev => ({
+        ...prev,
+        provisioningStatus: 'VERIFYING'
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S10',
+        actionId: 'FLASH_FIRMWARE',
+        actorRole: role,
+        message: 'Firmware binary flashed successfully (v2.4.1)'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 1000);
+  };
+
+  const handleVerifyConfig = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      // Status remains VERIFYING until completion, just adding an audit log
+      const evt = emitAuditEvent({
+        stageId: 'S10',
+        actionId: 'VERIFY_CONFIG',
+        actorRole: role,
+        message: 'Configuration parameters read-back verified'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleCompleteProvisioning = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      setS10Context(prev => ({
+        ...prev,
+        provisioningStatus: 'COMPLETED',
+        packsInProgressCount: Math.max(0, prev.packsInProgressCount - 1),
+        packsCompletedCount: prev.packsCompletedCount + 1,
+        lastProvisionedAt: now
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S10',
+        actionId: 'COMPLETE_PROVISIONING',
+        actorRole: role,
+        message: `Identity bound: ${bmsSerial || 'BMS-AUTO-GEN'} -> ${selectedPack.packId}`
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 800);
+  };
+
+  const handleNavToControlTower = () => {
+    if (onNavigate) {
+      onNavigate('control_tower');
+    }
+  };
+
+  const handleNavToS11 = () => {
+    if (onNavigate) {
+      emitAuditEvent({
+        stageId: 'S10',
+        actionId: 'NAV_NEXT_STAGE',
+        actorRole: role,
+        message: 'Navigated to S11: Finished Goods from S10 Next Step panel'
+      });
+      onNavigate('finished_goods');
+    }
+  };
 
   // Guard States
   const startSessionState = getAction('START_SESSION');
   const flashFirmwareState = getAction('FLASH_FIRMWARE');
   const verifyConfigState = getAction('VERIFY_CONFIG');
   const completeProvisioningState = getAction('COMPLETE_PROVISIONING');
+
+  // Next Step Readiness
+  const isReadyForNext = s10Context.provisioningStatus === 'COMPLETED';
 
   // RBAC Access Check
   const hasAccess = 
@@ -132,8 +244,64 @@ export const BMSProvisioning: React.FC = () => {
       <StageStateBanner stageId="S10" />
       <PreconditionsPanel stageId="S10" />
 
+      {/* Recent Local Activity Panel */}
+      {localEvents.length > 0 && (
+        <div className="bg-slate-50 border border-slate-200 rounded-md p-3 mb-6 animate-in slide-in-from-top-2">
+           <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase mb-2">
+              <History size={14} /> Recent S10 Activity (Session)
+           </div>
+           <div className="space-y-2">
+              {localEvents.slice(0, 3).map(evt => (
+                 <div key={evt.id} className="flex items-center gap-3 text-sm bg-white p-2 rounded border border-slate-100 shadow-sm">
+                    <span className="font-mono text-[10px] text-slate-400">{evt.timestamp}</span>
+                    <span className="font-bold text-slate-700 text-xs px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">{evt.actorRole}</span>
+                    <span className="text-slate-600 flex-1 truncate">{evt.message}</span>
+                    <CheckCircle2 size={14} className="text-green-500" />
+                 </div>
+              ))}
+           </div>
+        </div>
+      )}
+
+      {/* Next Step Guidance Panel */}
+      <div className={`bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm animate-in slide-in-from-top-3 ${!onNavigate ? 'hidden' : ''}`}>
+        <div className="flex items-start gap-3">
+          <div className="p-2 bg-blue-100 rounded-full text-blue-600">
+            <ArrowRight size={20} />
+          </div>
+          <div>
+            <h3 className="font-bold text-blue-900 text-sm">Next Recommended Action</h3>
+            <p className="text-xs text-blue-700 mt-1 max-w-lg">
+              {isReadyForNext 
+                ? "Provisioning complete. BMS identity bound to Pack ID. Proceed to Finished Goods (S11) for warehousing." 
+                : "Provisioning active. Complete firmware flash and verification to finalize the unit."}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 w-full sm:w-auto">
+           <button 
+             onClick={handleNavToControlTower} 
+             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-blue-200 text-blue-700 rounded-md text-xs font-bold hover:bg-blue-100 transition-colors"
+           >
+             <Radar size={14} /> Control Tower
+           </button>
+           <div className="flex-1 sm:flex-none flex flex-col items-center">
+             <button 
+               onClick={handleNavToS11} 
+               disabled={!isReadyForNext}
+               className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-xs font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+             >
+               <Save size={14} /> Go to S11: Finished Goods
+             </button>
+             {!isReadyForNext && (
+                <span className="text-[9px] text-red-500 mt-1 font-medium">Provisioning Incomplete</span>
+             )}
+           </div>
+        </div>
+      </div>
+
       {/* Main Grid */}
-      <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
+      <div className={`flex-1 grid grid-cols-12 gap-6 min-h-0 ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>
         
         {/* Left Col: Queue */}
         <div className="col-span-4 bg-white rounded-lg shadow-sm border border-industrial-border flex flex-col overflow-hidden">
@@ -192,8 +360,9 @@ export const BMSProvisioning: React.FC = () => {
             {/* Start Button */}
             <div className="flex flex-col items-end">
                <button 
-                 disabled={!startSessionState.enabled}
-                 className="bg-blue-600 text-white px-4 py-2 rounded-md font-bold text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex items-center gap-2"
+                 onClick={handleStartSession}
+                 disabled={!startSessionState.enabled || isSimulating}
+                 className="bg-blue-600 text-white px-4 py-2 rounded-md font-bold text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex items-center gap-2 transition-colors"
                  title={startSessionState.reason}
                >
                  <Play size={16} /> Start Session
@@ -258,8 +427,9 @@ export const BMSProvisioning: React.FC = () => {
                     {/* Flash Firmware */}
                     <div className="flex flex-col">
                       <button 
-                          disabled={!flashFirmwareState.enabled} 
-                          className="w-full h-24 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg font-bold text-sm flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 shadow-sm"
+                          onClick={handleFlashFirmware}
+                          disabled={!flashFirmwareState.enabled || isSimulating} 
+                          className="w-full h-24 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg font-bold text-sm flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 shadow-sm transition-colors"
                           title={flashFirmwareState.reason}
                       >
                           <Download size={24} className={flashFirmwareState.enabled ? "text-blue-500" : "text-slate-300"} />
@@ -272,8 +442,9 @@ export const BMSProvisioning: React.FC = () => {
                     {/* Verify Config */}
                     <div className="flex flex-col">
                       <button 
-                          disabled={!verifyConfigState.enabled} 
-                          className="w-full h-24 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg font-bold text-sm flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 shadow-sm"
+                          onClick={handleVerifyConfig}
+                          disabled={!verifyConfigState.enabled || isSimulating} 
+                          className="w-full h-24 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg font-bold text-sm flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 shadow-sm transition-colors"
                           title={verifyConfigState.reason}
                       >
                           <Server size={24} className={verifyConfigState.enabled ? "text-purple-500" : "text-slate-300"} />
@@ -286,8 +457,9 @@ export const BMSProvisioning: React.FC = () => {
                     {/* Complete & Release */}
                     <div className="flex flex-col">
                       <button 
-                          disabled={!completeProvisioningState.enabled} 
-                          className="w-full h-24 bg-green-600 text-white hover:bg-green-700 rounded-lg font-bold text-sm flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 shadow-sm"
+                          onClick={handleCompleteProvisioning}
+                          disabled={!completeProvisioningState.enabled || isSimulating} 
+                          className="w-full h-24 bg-green-600 text-white hover:bg-green-700 rounded-lg font-bold text-sm flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 shadow-sm transition-colors"
                           title={completeProvisioningState.reason}
                       >
                           <CheckCircle2 size={24} />

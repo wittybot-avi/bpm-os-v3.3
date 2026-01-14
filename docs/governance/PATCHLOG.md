@@ -144,3 +144,4 @@ TEMPLATE:
 | **V33-S9-PP-04** | S9 Workflow Navigation Wiring | 2026-01-16 12:00 (IST) | Added S9 Next Step navigation panel guiding flow to S10 Packing. | Yes |
 | **V33-S10-BP-01** | S10 Stage Contract Stub | 2026-01-16 12:15 (IST) | Added S10 BMS Provisioning context contract + mock data scaffold. | No |
 | **V33-S10-FP-02** | S10 State Guard by Role | 2026-01-16 12:30 (IST) | Added S10 role/status UI guards incl. firmware repo blocker; no workflow change. | No |
+| **V33-S10-PP-03** | S10 Simulated Actions | 2026-01-16 12:45 (IST) | S10 actions simulate provisioning lifecycle incl. flash/verify; audit events emitted (frontend-only). | Yes |
