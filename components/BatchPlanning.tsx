@@ -10,10 +10,15 @@ import {
   CalendarDays, 
   MoreHorizontal, 
   Timer, 
-  Boxes 
+  Boxes,
+  Database,
+  Edit3
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
+import { DisabledHint } from './DisabledHint';
+import { getMockS4Context, S4Context } from '../stages/s4/s4Contract';
+import { getS4ActionState, S4ActionId } from '../stages/s4/s4Guards';
 
 // Mock Data Types
 interface PlanningBatch {
@@ -75,6 +80,18 @@ const MOCK_BATCHES: PlanningBatch[] = [
 export const BatchPlanning: React.FC = () => {
   const { role } = useContext(UserContext);
   const [selectedBatch, setSelectedBatch] = useState<PlanningBatch>(MOCK_BATCHES[0]);
+  
+  // S4 Context (Read-Only Mock)
+  const [s4Context] = useState<S4Context>(getMockS4Context());
+
+  // Helper to resolve action state
+  const getAction = (actionId: S4ActionId) => getS4ActionState(role, s4Context, actionId);
+
+  // Pre-calculate action states
+  const createState = getAction('CREATE_BATCH_PLAN');
+  const editState = getAction('EDIT_BATCH_PLAN');
+  const lockState = getAction('LOCK_BATCH_PLAN');
+  const releaseState = getAction('RELEASE_BATCHES_TO_LINE');
 
   // RBAC Access Check
   const hasAccess = 
@@ -82,8 +99,6 @@ export const BatchPlanning: React.FC = () => {
     role === UserRole.PLANNER || 
     role === UserRole.SUPERVISOR || 
     role === UserRole.MANAGEMENT;
-
-  const isReadOnly = role === UserRole.MANAGEMENT;
 
   if (!hasAccess) {
     return (
@@ -109,18 +124,40 @@ export const BatchPlanning: React.FC = () => {
            </h1>
            <p className="text-slate-500 text-sm mt-1">Schedule production runs, assign lines, and lock execution batches.</p>
         </div>
-        {!isReadOnly && (
-          <div className="flex gap-3">
+        
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex gap-2">
              <button 
-              className="bg-brand-600 text-white px-4 py-2 rounded-md font-medium text-sm opacity-50 cursor-not-allowed flex items-center gap-2"
-              disabled
-              title="Demo Mode: Backend not connected"
+              className="bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 px-3 py-2 rounded-md font-medium text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!editState.enabled}
+              title={editState.reason}
+            >
+              <Edit3 size={16} />
+              <span>Edit Plan</span>
+            </button>
+             <button 
+              className="bg-brand-600 text-white px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400"
+              disabled={!createState.enabled}
+              title={createState.reason}
             >
               <Plus size={16} />
               <span>Create Batch</span>
             </button>
           </div>
-        )}
+          {!createState.enabled && (
+             <DisabledHint reason={createState.reason || 'Blocked'} className="mt-1" />
+          )}
+          <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2">
+            <Database size={10} />
+            <span>Planned: {s4Context.plannedBatchCount}</span>
+            <span className="text-slate-300">|</span>
+            <span>Active: {s4Context.activeBatchCount}</span>
+            <span className="text-slate-300">|</span>
+            <span className={`font-bold ${s4Context.planningStatus === 'PLANNED' ? 'text-green-600' : 'text-blue-600'}`}>
+              {s4Context.planningStatus}
+            </span>
+          </div>
+        </div>
       </div>
 
       <StageStateBanner stageId="S4" />
@@ -255,26 +292,30 @@ export const BatchPlanning: React.FC = () => {
              {/* 3. Actions */}
             <section className="pt-4 border-t border-slate-100">
                 <div className="flex gap-4">
-                    <button 
-                        disabled 
-                        className="flex-1 bg-white border border-slate-300 text-slate-400 py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 opacity-60 cursor-not-allowed"
-                        title="Demo Mode: Backend locked"
-                    >
-                        <Lock size={16} />
-                        Lock Batch Plan
-                    </button>
-                    <button 
-                        disabled 
-                        className="flex-1 bg-brand-600 text-white py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 opacity-50 cursor-not-allowed shadow-sm"
-                        title="Demo Mode: Backend locked"
-                    >
-                        <PlayCircle size={16} />
-                        Release to Production
-                    </button>
+                    <div className="flex-1 flex flex-col">
+                        <button 
+                            disabled={!lockState.enabled} 
+                            className="w-full bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                            title={lockState.reason}
+                        >
+                            <Lock size={16} />
+                            Lock Batch Plan
+                        </button>
+                        {!lockState.enabled && <DisabledHint reason={lockState.reason || 'Blocked'} className="mx-auto" />}
+                    </div>
+                    
+                    <div className="flex-1 flex flex-col">
+                        <button 
+                            disabled={!releaseState.enabled} 
+                            className="w-full bg-brand-600 text-white py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 shadow-sm hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400"
+                            title={releaseState.reason}
+                        >
+                            <PlayCircle size={16} />
+                            Release to Production
+                        </button>
+                        {!releaseState.enabled && <DisabledHint reason={releaseState.reason || 'Blocked'} className="mx-auto" />}
+                    </div>
                 </div>
-                 <p className="text-center text-xs text-slate-400 mt-3">
-                    Actions are disabled in Frontend-Only Demo Mode.
-                </p>
             </section>
             
           </div>

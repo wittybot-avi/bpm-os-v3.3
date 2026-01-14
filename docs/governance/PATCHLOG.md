@@ -118,3 +118,5 @@ TEMPLATE:
 | **V33-S3-FP-02** | S3 State Guard by Role | 2026-01-16 05:30 (IST) | Added S3 contract stub and role/status UI guards with blocked reasons. | No |
 | **V33-S3-PP-03** | S3 Simulated Actions | 2026-01-16 05:45 (IST) | Added simulated S3 receipt, inspection, and serialization workflow with audit events. | Yes |
 | **V33-S3-PP-04** | S3 Workflow Navigation Wiring | 2026-01-16 06:00 (IST) | Added S3 Next Step navigation panel guiding flow to S4 Batch Planning. | Yes |
+| **V33-S4-BP-01** | S4 Stage Contract Stub | 2026-01-16 06:15 (IST) | Added S4 batch planning context contract + mock data scaffold; S4 screen reads it (read-only). | No |
+| **V33-S4-FP-02** | S4 State Guard by Role | 2026-01-16 06:30 (IST) | Added S4 role/status UI guards with blocked reasons; no workflow change. | No |
