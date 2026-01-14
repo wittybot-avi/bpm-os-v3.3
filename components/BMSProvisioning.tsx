@@ -283,7 +283,7 @@ export const BMSProvisioning: React.FC<BMSProvisioningProps> = ({ onNavigate }) 
              onClick={handleNavToControlTower} 
              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-blue-200 text-blue-700 rounded-md text-xs font-bold hover:bg-blue-100 transition-colors"
            >
-             <Radar size={14} /> Control Tower
+             <Radar size={14} /> Open Control Tower
            </button>
            <div className="flex-1 sm:flex-none flex flex-col items-center">
              <button 
