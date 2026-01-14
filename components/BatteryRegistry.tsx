@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { UserContext, UserRole } from '../types';
+import { UserContext, UserRole, NavView } from '../types';
 import { 
   ShieldAlert, 
   Database, 
@@ -27,7 +27,9 @@ import {
   ThumbsDown,
   LogOut,
   Stethoscope,
-  CheckCircle2
+  CheckCircle2,
+  ArrowRight,
+  Radar
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
@@ -161,7 +163,11 @@ const REGISTRY_DATA: RegistryPack[] = [
   }
 ];
 
-export const BatteryRegistry: React.FC = () => {
+interface BatteryRegistryProps {
+  onNavigate?: (view: NavView) => void;
+}
+
+export const BatteryRegistry: React.FC<BatteryRegistryProps> = ({ onNavigate }) => {
   const { role } = useContext(UserContext);
   const [selectedPack, setSelectedPack] = useState<RegistryPack>(REGISTRY_DATA[0]);
 
@@ -274,6 +280,24 @@ export const BatteryRegistry: React.FC = () => {
     }, 600);
   };
 
+  const handleNavToS10 = () => {
+    if (onNavigate) {
+      emitAuditEvent({
+        stageId: 'S9',
+        actionId: 'NAV_NEXT_STAGE',
+        actorRole: role,
+        message: 'Navigated to S10 from S9 Next Step panel'
+      });
+      onNavigate('bms_provisioning');
+    }
+  };
+
+  const handleNavToControlTower = () => {
+    if (onNavigate) {
+      onNavigate('control_tower');
+    }
+  };
+
   // RBAC Access Check
   const hasAccess = 
     role === UserRole.SYSTEM_ADMIN || 
@@ -289,6 +313,8 @@ export const BatteryRegistry: React.FC = () => {
   const approveState = getAction('MARK_FINAL_APPROVE');
   const rejectState = getAction('MARK_FINAL_REJECT');
   const releaseState = getAction('RELEASE_TO_PACKING');
+
+  const isReadyForNext = s9Context.finalQaStatus === 'APPROVED';
 
   if (!hasAccess) {
     return (
@@ -362,6 +388,43 @@ export const BatteryRegistry: React.FC = () => {
            </div>
         </div>
       )}
+
+      {/* Next Step Guidance Panel */}
+      <div className={`bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm animate-in slide-in-from-top-3 ${!onNavigate ? 'hidden' : ''}`}>
+        <div className="flex items-start gap-3">
+          <div className="p-2 bg-blue-100 rounded-full text-blue-600">
+            <ArrowRight size={20} />
+          </div>
+          <div>
+            <h3 className="font-bold text-blue-900 text-sm">Next Recommended Action</h3>
+            <p className="text-xs text-blue-700 mt-1 max-w-lg">
+              {isReadyForNext 
+                ? "Registry entry approved. Proceed to BMS Provisioning (S10) for firmware and identity binding." 
+                : "Final QA pending. Approve digital twin registry entry to enable downstream provisioning."}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 w-full sm:w-auto">
+           <button 
+             onClick={handleNavToControlTower} 
+             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-blue-200 text-blue-700 rounded-md text-xs font-bold hover:bg-blue-100 transition-colors"
+           >
+             <Radar size={14} /> Control Tower
+           </button>
+           <div className="flex-1 sm:flex-none flex flex-col items-center">
+             <button 
+               onClick={handleNavToS10} 
+               disabled={!isReadyForNext}
+               className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-xs font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+             >
+               <Cpu size={14} /> Go to S10: BMS Provisioning
+             </button>
+             {!isReadyForNext && (
+                <span className="text-[9px] text-red-500 mt-1 font-medium">Final QA Not Approved</span>
+             )}
+           </div>
+        </div>
+      </div>
 
       {/* Main Grid */}
       <div className={`flex-1 grid grid-cols-12 gap-6 min-h-0 ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>
