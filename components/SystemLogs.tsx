@@ -1,4 +1,4 @@
-import React, { useState, useContext, useMemo } from 'react';
+import React, { useState, useContext, useMemo, useEffect } from 'react';
 import { UserContext, UserRole } from '../types';
 import { 
   ClipboardList, 
@@ -16,11 +16,14 @@ import {
   Briefcase,
   Play,
   Save,
-  Lock
+  Lock,
+  History,
+  CheckCircle2
 } from 'lucide-react';
 import { getMockS17Context, S17Context } from '../stages/s17/s17Contract';
 import { getS17ActionState, S17ActionId } from '../stages/s17/s17Guards';
 import { DisabledHint } from './DisabledHint';
+import { emitAuditEvent, getAuditEvents, AuditEvent } from '../utils/auditEvents';
 
 interface LogEntry {
   id: string;
@@ -90,17 +93,130 @@ export const SystemLogs: React.FC = () => {
   const [filterSeverity, setFilterSeverity] = useState<string>('All');
   
   // S17 Context
-  const [s17Context] = useState<S17Context>(getMockS17Context());
+  const [s17Context, setS17Context] = useState<S17Context>(getMockS17Context());
+  const [localEvents, setLocalEvents] = useState<AuditEvent[]>([]);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [programClosed, setProgramClosed] = useState(false);
+
+  // Load events on mount
+  useEffect(() => {
+    setLocalEvents(getAuditEvents().filter(e => e.stageId === 'S17'));
+  }, []);
 
   // Helper for Guards
   const getAction = (actionId: S17ActionId) => getS17ActionState(role, s17Context, actionId);
 
-  // Mock Handlers (No-op for now)
-  const handlePrepareArchive = () => console.log('Prepare Archive clicked');
-  const handleStartArchive = () => console.log('Start Archive clicked');
-  const handleCompleteArchive = () => console.log('Complete Archive clicked');
-  const handleExportPackage = () => console.log('Export Package clicked');
-  const handleCloseProgram = () => console.log('Close Program clicked');
+  // Action Handlers
+  const handlePrepareArchive = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS17Context(prev => ({
+        ...prev,
+        closureStatus: 'READY'
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S17',
+        actionId: 'PREPARE_ARCHIVE',
+        actorRole: role,
+        message: 'Archive volume prepared. Ready for processing.'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleStartArchive = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS17Context(prev => ({
+        ...prev,
+        closureStatus: 'ARCHIVING',
+        archiveBatchesCount: prev.archiveBatchesCount + 1
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S17',
+        actionId: 'START_ARCHIVE',
+        actorRole: role,
+        message: 'Archival batch process started.'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleCompleteArchive = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      setS17Context(prev => {
+        const moved = Math.min(prev.recordsReadyToArchiveCount, 150); // Move simulated chunk
+        return {
+          ...prev,
+          closureStatus: 'ARCHIVED',
+          recordsReadyToArchiveCount: Math.max(0, prev.recordsReadyToArchiveCount - moved),
+          recordsArchivedCount: prev.recordsArchivedCount + moved,
+          lastArchiveAt: now
+        };
+      });
+      const evt = emitAuditEvent({
+        stageId: 'S17',
+        actionId: 'COMPLETE_ARCHIVE',
+        actorRole: role,
+        message: 'Archive batch completed successfully. Volume moved to cold storage.'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 1000);
+  };
+
+  const handleExportPackage = () => {
+    const exportData = {
+        generatedAt: new Date().toISOString(),
+        stage: "S17: Closure & Archive",
+        closureStatus: s17Context.closureStatus,
+        metrics: {
+            recordsReady: s17Context.recordsReadyToArchiveCount,
+            recordsArchived: s17Context.recordsArchivedCount,
+            batches: s17Context.archiveBatchesCount,
+            lastArchiveAt: s17Context.lastArchiveAt
+        },
+        notes: "Frontend Demo Export - Mock Data"
+    };
+    
+    // Create and trigger download
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `CLOSURE_PKG_S17_${new Date().getTime()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    const evt = emitAuditEvent({
+        stageId: 'S17',
+        actionId: 'EXPORT_CLOSURE_PACKAGE',
+        actorRole: role,
+        message: 'Closure package (JSON) exported to local device'
+    });
+    setLocalEvents(prev => [evt, ...prev]);
+  };
+
+  const handleCloseProgram = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+        const evt = emitAuditEvent({
+            stageId: 'S17',
+            actionId: 'CLOSE_PROGRAM',
+            actorRole: role,
+            message: 'Program formally closed. System in read-only retention mode.'
+        });
+        setLocalEvents(prev => [evt, ...prev]);
+        setProgramClosed(true);
+        setIsSimulating(false);
+    }, 800);
+  };
 
   const isOperator = role === UserRole.OPERATOR;
   const isAuditor = role === UserRole.MANAGEMENT || role === UserRole.COMPLIANCE;
@@ -147,6 +263,7 @@ export const SystemLogs: React.FC = () => {
           <div className={`flex items-center gap-2 px-3 py-1 rounded text-xs font-bold border uppercase ${
              s17Context.closureStatus === 'ARCHIVED' ? 'bg-green-50 text-green-700 border-green-200' :
              s17Context.closureStatus === 'READY' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+             s17Context.closureStatus === 'ARCHIVING' ? 'bg-purple-50 text-purple-700 border-purple-200 animate-pulse' :
              'bg-slate-100 text-slate-600 border-slate-200'
           }`}>
              <Archive size={14} />
@@ -161,8 +278,18 @@ export const SystemLogs: React.FC = () => {
         </div>
       </div>
 
+      {programClosed && (
+        <div className="bg-slate-800 text-white p-3 rounded-md flex items-center gap-3 animate-in slide-in-from-top-2">
+            <Lock size={18} className="text-red-400" />
+            <div>
+                <div className="text-sm font-bold">PROGRAM CLOSED (DEMO)</div>
+                <div className="text-xs text-slate-400">System is now in read-only retention state. No further mutations allowed in this simulation.</div>
+            </div>
+        </div>
+      )}
+
       {/* Archive Operations Toolbar */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-industrial-border flex flex-wrap items-center gap-4">
+      <div className={`bg-white p-4 rounded-lg shadow-sm border border-industrial-border flex flex-wrap items-center gap-4 transition-opacity ${isSimulating || programClosed ? 'opacity-70 pointer-events-none' : ''}`}>
          <div className="flex items-center gap-3 mr-auto">
             <div className="p-2 bg-slate-100 text-slate-600 rounded border border-slate-200">
                <Briefcase size={20} />
@@ -235,6 +362,25 @@ export const SystemLogs: React.FC = () => {
             </button>
          </div>
       </div>
+
+      {/* Recent Local Activity Panel */}
+      {localEvents.length > 0 && (
+        <div className="bg-slate-50 border border-slate-200 rounded-md p-3 animate-in slide-in-from-top-2">
+           <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase mb-2">
+              <History size={14} /> Recent S17 Activity (Session)
+           </div>
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+              {localEvents.slice(0, 5).map(evt => (
+                 <div key={evt.id} className="flex items-center gap-3 text-sm bg-white p-2 rounded border border-slate-100 shadow-sm">
+                    <span className="font-mono text-[10px] text-slate-400 shrink-0">{evt.timestamp.split(' ')[0]}</span>
+                    <span className="font-bold text-slate-700 text-xs px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200 shrink-0">{evt.actorRole}</span>
+                    <span className="text-slate-600 flex-1 truncate text-xs" title={evt.message}>{evt.message}</span>
+                    <CheckCircle2 size={12} className="text-green-500 shrink-0" />
+                 </div>
+              ))}
+           </div>
+        </div>
+      )}
 
       {/* Filter Bar */}
       <div className="bg-white p-3 rounded-lg shadow-sm border border-industrial-border flex gap-4 items-center">
