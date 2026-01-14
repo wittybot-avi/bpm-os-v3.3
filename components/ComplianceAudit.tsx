@@ -22,10 +22,12 @@ import {
   Archive,
   Play,
   ArrowRight,
-  Radar
+  Radar,
+  Gavel
 } from 'lucide-react';
 import { getMockS14Context, S14Context } from '../stages/s14/s14Contract';
 import { getS14ActionState, S14ActionId } from '../stages/s14/s14Guards';
+import { getMockS16Context, S16Context } from '../stages/s16/s16Contract';
 import { DisabledHint } from './DisabledHint';
 import { emitAuditEvent, getAuditEvents, AuditEvent } from '../utils/auditEvents';
 
@@ -60,6 +62,10 @@ export const ComplianceAudit: React.FC<ComplianceAuditProps> = ({ onNavigate }) 
   
   // S14 Context State
   const [s14Context, setS14Context] = useState<S14Context>(getMockS14Context());
+  
+  // S16 Context State (Read-only stub)
+  const [s16Context] = useState<S16Context>(getMockS16Context());
+
   const [localEvents, setLocalEvents] = useState<AuditEvent[]>([]);
   const [isSimulating, setIsSimulating] = useState(false);
 
@@ -244,20 +250,39 @@ export const ComplianceAudit: React.FC<ComplianceAuditProps> = ({ onNavigate }) 
         </div>
         
         <div className="flex flex-col items-end gap-2">
-          {/* S14 Context Read-Only Display */}
-          <div className="flex items-center gap-3 bg-slate-50 px-3 py-1.5 rounded border border-slate-200">
-             <div className="flex flex-col items-end">
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Circular Status (S14)</span>
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
-                   <RefreshCcw size={12} className="text-brand-600" />
-                   {s14Context.circularStatus}
-                </div>
-             </div>
-             <div className="w-px h-6 bg-slate-200"></div>
-             <div className="flex flex-col items-end">
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Refurbish Eligible</span>
-                <span className="text-xs font-mono font-bold text-green-600">{s14Context.packsEligibleForRefurbishCount} Units</span>
-             </div>
+          
+          <div className="flex gap-2">
+            {/* S14 Context Read-Only Display */}
+            <div className="flex items-center gap-3 bg-slate-50 px-3 py-1.5 rounded border border-slate-200">
+               <div className="flex flex-col items-end">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Circular Status (S14)</span>
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                     <RefreshCcw size={12} className="text-brand-600" />
+                     {s14Context.circularStatus}
+                  </div>
+               </div>
+               <div className="w-px h-6 bg-slate-200"></div>
+               <div className="flex flex-col items-end">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Refurbish Eligible</span>
+                  <span className="text-xs font-mono font-bold text-green-600">{s14Context.packsEligibleForRefurbishCount} Units</span>
+               </div>
+            </div>
+
+            {/* S16 Context Read-Only Display (New) */}
+            <div className="flex items-center gap-3 bg-slate-50 px-3 py-1.5 rounded border border-slate-200">
+               <div className="flex flex-col items-end">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Audit Status (S16)</span>
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                     <Gavel size={12} className="text-blue-600" />
+                     {s16Context.auditStatus}
+                  </div>
+               </div>
+               <div className="w-px h-6 bg-slate-200"></div>
+               <div className="flex flex-col items-end">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Open Findings</span>
+                  <span className="text-xs font-mono font-bold text-amber-600">{s16Context.findingsOpenCount} Issues</span>
+               </div>
+            </div>
           </div>
 
           {!isAuditor && (
