@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { UserContext, UserRole, APP_VERSION } from '../types';
 import { 
   ShieldAlert, 
@@ -11,22 +11,100 @@ import {
   Edit2,
   Plus,
   RefreshCw,
-  Lock
+  Lock,
+  History,
+  CheckCircle2
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
 import { DisabledHint } from './DisabledHint';
-import { getMockS0Context } from '../stages/s0/s0Contract';
+import { getMockS0Context, S0Context } from '../stages/s0/s0Contract';
 import { getS0ActionState, S0ActionId } from '../stages/s0/s0Guards';
+import { emitAuditEvent, getAuditEvents, AuditEvent } from '../utils/auditEvents';
 
 export const SystemSetup: React.FC = () => {
   const { role } = useContext(UserContext);
   
-  // S0 Contract Integration
-  const s0Context = getMockS0Context();
+  // Local State for Simulation (instead of static mock)
+  const [s0Context, setS0Context] = useState<S0Context>(getMockS0Context());
+  const [localEvents, setLocalEvents] = useState<AuditEvent[]>([]);
+  const [isSimulating, setIsSimulating] = useState(false);
+
+  // Load events on mount
+  useEffect(() => {
+    setLocalEvents(getAuditEvents().filter(e => e.stageId === 'S0'));
+  }, []);
 
   // Helper to resolve action state for UI
   const getAction = (actionId: S0ActionId) => getS0ActionState(role, s0Context, actionId);
+
+  // Action Handlers
+  const handleEditPlant = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      setS0Context(prev => ({ ...prev, configLastUpdated: now }));
+      
+      const evt = emitAuditEvent({
+        stageId: 'S0',
+        actionId: 'EDIT_PLANT_DETAILS',
+        actorRole: role,
+        message: 'Updated facility configuration timestamp'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleAddLine = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS0Context(prev => ({ ...prev, activeLines: prev.activeLines + 1 }));
+      
+      const evt = emitAuditEvent({
+        stageId: 'S0',
+        actionId: 'MANAGE_LINES',
+        actorRole: role,
+        message: `Provisioned new production line (Total: ${s0Context.activeLines + 1})`
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 800);
+  };
+
+  const handleSyncRegs = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      setS0Context(prev => ({ ...prev, configLastUpdated: now }));
+
+      const evt = emitAuditEvent({
+        stageId: 'S0',
+        actionId: 'UPDATE_REGULATIONS',
+        actorRole: role,
+        message: 'Synchronized regulatory definitions from cloud'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 1000);
+  };
+
+  const handlePublishSOP = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const nextVer = s0Context.activeSopVersion.split('-')[0] + '-RC' + (parseInt(s0Context.activeSopVersion.split('-RC')[1] || '1') + 1);
+      setS0Context(prev => ({ ...prev, activeSopVersion: nextVer }));
+
+      const evt = emitAuditEvent({
+        stageId: 'S0',
+        actionId: 'SYNC_SOP',
+        actorRole: role,
+        message: `Published SOP Revision ${nextVer}`
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 1200);
+  };
 
   const hasAccess = role === UserRole.SYSTEM_ADMIN || role === UserRole.MANAGEMENT || role === UserRole.COMPLIANCE;
 
@@ -47,7 +125,7 @@ export const SystemSetup: React.FC = () => {
   const syncSopState = getAction('SYNC_SOP');
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-6 animate-in fade-in duration-300 pb-12">
       {/* Standard Header */}
       <div className="flex items-center justify-between border-b border-slate-200 pb-4">
         <div>
@@ -73,8 +151,27 @@ export const SystemSetup: React.FC = () => {
       <StageStateBanner stageId="S0" />
       <PreconditionsPanel stageId="S0" />
 
+      {/* Recent Local Activity Panel */}
+      {localEvents.length > 0 && (
+        <div className="bg-slate-50 border border-slate-200 rounded-md p-3 mb-6 animate-in slide-in-from-top-2">
+           <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase mb-2">
+              <History size={14} /> Recent S0 Activity (Session)
+           </div>
+           <div className="space-y-2">
+              {localEvents.slice(0, 3).map(evt => (
+                 <div key={evt.id} className="flex items-center gap-3 text-sm bg-white p-2 rounded border border-slate-100 shadow-sm">
+                    <span className="font-mono text-[10px] text-slate-400">{evt.timestamp}</span>
+                    <span className="font-bold text-slate-700 text-xs px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">{evt.actorRole}</span>
+                    <span className="text-slate-600 flex-1 truncate">{evt.message}</span>
+                    <CheckCircle2 size={14} className="text-green-500" />
+                 </div>
+              ))}
+           </div>
+        </div>
+      )}
+
       {/* Grid Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>
         
         {/* Plant Overview */}
         <div className="bg-white p-6 rounded-lg shadow-sm border border-industrial-border flex flex-col">
@@ -85,6 +182,7 @@ export const SystemSetup: React.FC = () => {
             </div>
             <button 
               disabled={!editPlantState.enabled}
+              onClick={handleEditPlant}
               className="text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed text-brand-600 font-medium transition-colors"
               title={editPlantState.reason}
             >
@@ -125,6 +223,7 @@ export const SystemSetup: React.FC = () => {
             </div>
             <button 
               disabled={!manageLinesState.enabled}
+              onClick={handleAddLine}
               className="text-xs flex items-center gap-1 px-2 py-1 rounded bg-brand-50 text-brand-700 hover:bg-brand-100 disabled:opacity-50 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed font-medium transition-colors border border-transparent disabled:border-slate-200"
               title={manageLinesState.reason}
             >
@@ -141,6 +240,11 @@ export const SystemSetup: React.FC = () => {
                 <span className="font-medium text-slate-700">Module Assembly Line B</span>
                 <span className="px-2 py-0.5 bg-slate-200 text-slate-600 text-xs rounded-full font-bold">MAINTENANCE</span>
              </div>
+             {s0Context.activeLines > 2 && (
+               <div className="p-2 text-center text-xs text-slate-500 italic bg-slate-50 rounded border border-dashed border-slate-200">
+                 + {s0Context.activeLines - 2} Additional Lines Provisioned
+               </div>
+             )}
           </div>
 
           {!manageLinesState.enabled && (
@@ -157,6 +261,7 @@ export const SystemSetup: React.FC = () => {
             </div>
             <button 
               disabled={!updateRegsState.enabled}
+              onClick={handleSyncRegs}
               className="text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed text-slate-600 font-medium transition-colors"
               title={updateRegsState.reason}
             >
@@ -185,6 +290,7 @@ export const SystemSetup: React.FC = () => {
             </div>
             <button 
               disabled={!syncSopState.enabled}
+              onClick={handlePublishSOP}
               className="text-xs flex items-center gap-1 px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-50 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed text-slate-700 font-medium transition-colors"
               title={syncSopState.reason}
             >
