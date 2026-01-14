@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { UserContext, UserRole } from '../types';
 import { 
   ShieldAlert, 
@@ -22,9 +22,10 @@ import {
   Archive,
   Play
 } from 'lucide-react';
-import { getMockS14Context } from '../stages/s14/s14Contract';
+import { getMockS14Context, S14Context } from '../stages/s14/s14Contract';
 import { getS14ActionState, S14ActionId } from '../stages/s14/s14Guards';
 import { DisabledHint } from './DisabledHint';
+import { emitAuditEvent, getAuditEvents, AuditEvent } from '../utils/auditEvents';
 
 // Mock Data for Dashboard
 const KPI_DATA = {
@@ -51,11 +52,117 @@ const AUDIT_TRAIL = [
 export const ComplianceAudit: React.FC = () => {
   const { role } = useContext(UserContext);
   
-  // S14 Context (Read-Only)
-  const [s14Context] = useState(getMockS14Context());
+  // S14 Context State
+  const [s14Context, setS14Context] = useState<S14Context>(getMockS14Context());
+  const [localEvents, setLocalEvents] = useState<AuditEvent[]>([]);
+  const [isSimulating, setIsSimulating] = useState(false);
+
+  // Load events on mount (Filtered for S14)
+  useEffect(() => {
+    setLocalEvents(getAuditEvents().filter(e => e.stageId === 'S14'));
+  }, []);
 
   // Helper for Guards
   const getAction = (actionId: S14ActionId) => getS14ActionState(role, s14Context, actionId);
+
+  // Action Handlers
+  const handleStartInspection = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS14Context(prev => ({
+        ...prev,
+        circularStatus: 'INSPECTION'
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S14',
+        actionId: 'START_INSPECTION',
+        actorRole: role,
+        message: 'Circular inspection started for returned unit'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleRefurbish = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS14Context(prev => ({
+        ...prev,
+        circularStatus: 'REFURBISH',
+        packsSentForRefurbishCount: prev.packsSentForRefurbishCount + 1,
+        refurbishInProgressCount: prev.refurbishInProgressCount + 1
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S14',
+        actionId: 'MARK_FOR_REFURBISH',
+        actorRole: role,
+        message: 'Unit marked for Refurbishment (Module Replacement)'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleRecycle = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS14Context(prev => ({
+        ...prev,
+        circularStatus: 'RECYCLE',
+        packsSentForRecycleCount: prev.packsSentForRecycleCount + 1
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S14',
+        actionId: 'MARK_FOR_RECYCLE',
+        actorRole: role,
+        message: 'Unit marked for Recycling (Material Recovery)'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleCompleteRefurbish = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      setS14Context(prev => ({
+        ...prev,
+        circularStatus: 'COMPLETED',
+        refurbishInProgressCount: Math.max(0, prev.refurbishInProgressCount - 1),
+        lastCircularActionAt: now
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S14',
+        actionId: 'COMPLETE_REFURBISH',
+        actorRole: role,
+        message: 'Refurbishment completed. Unit re-certified.'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 800);
+  };
+
+  const handleCloseCase = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      setS14Context(prev => ({
+        ...prev,
+        circularStatus: 'COMPLETED',
+        lastCircularActionAt: now
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S14',
+        actionId: 'CLOSE_CIRCULAR_CASE',
+        actorRole: role,
+        message: 'Circular lifecycle case closed and archived.'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
 
   // Guard States
   const startInspState = getAction('START_INSPECTION');
@@ -187,8 +294,27 @@ export const ComplianceAudit: React.FC = () => {
            </div>
         </div>
 
+        {/* Recent Activity S14 Panel */}
+        {localEvents.length > 0 && (
+          <div className="col-span-12 bg-slate-50 border border-slate-200 rounded-md p-3 animate-in slide-in-from-top-2">
+             <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase mb-2">
+                <History size={14} /> Recent S14 Circular Activity (Session)
+             </div>
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                {localEvents.slice(0, 5).map(evt => (
+                   <div key={evt.id} className="flex items-center gap-3 text-sm bg-white p-2 rounded border border-slate-100 shadow-sm">
+                      <span className="font-mono text-[10px] text-slate-400 shrink-0">{evt.timestamp.split(' ')[0]}</span>
+                      <span className="font-bold text-slate-700 text-xs px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200 shrink-0">{evt.actorRole}</span>
+                      <span className="text-slate-600 flex-1 truncate text-xs" title={evt.message}>{evt.message}</span>
+                      <CheckCircle2 size={12} className="text-green-500 shrink-0" />
+                   </div>
+                ))}
+             </div>
+          </div>
+        )}
+
         {/* Circular Processing Operations (S14 Actions) */}
-        <div className="col-span-12 bg-white rounded-lg shadow-sm border border-industrial-border p-4">
+        <div className={`col-span-12 bg-white rounded-lg shadow-sm border border-industrial-border p-4 transition-opacity ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>
             <div className="flex items-center gap-3 mb-4 border-b border-slate-100 pb-2">
                 <RefreshCcw size={18} className="text-brand-600" />
                 <h3 className="font-bold text-slate-700">Circular Processing Operations (S14)</h3>
@@ -201,6 +327,7 @@ export const ComplianceAudit: React.FC = () => {
                 {/* Inspect */}
                 <div className="flex flex-col items-center">
                     <button 
+                        onClick={handleStartInspection}
                         disabled={!startInspState.enabled}
                         title={startInspState.reason}
                         className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-md text-sm font-bold hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
@@ -216,6 +343,7 @@ export const ComplianceAudit: React.FC = () => {
                 <div className="flex flex-col items-center">
                     <div className="flex gap-2">
                         <button 
+                            onClick={handleRefurbish}
                             disabled={!refurbishState.enabled}
                             title={refurbishState.reason}
                             className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-md text-sm font-bold hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-300"
@@ -223,6 +351,7 @@ export const ComplianceAudit: React.FC = () => {
                             <Wrench size={16} /> Refurbish
                         </button>
                         <button 
+                            onClick={handleRecycle}
                             disabled={!recycleState.enabled}
                             title={recycleState.reason}
                             className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 border border-green-200 rounded-md text-sm font-bold hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-300"
@@ -240,6 +369,7 @@ export const ComplianceAudit: React.FC = () => {
                 {/* Execution */}
                 <div className="flex flex-col items-center">
                     <button 
+                        onClick={handleCompleteRefurbish}
                         disabled={!completeRefurbState.enabled}
                         title={completeRefurbState.reason}
                         className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 border border-slate-300 rounded-md text-sm font-bold hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
@@ -252,6 +382,7 @@ export const ComplianceAudit: React.FC = () => {
                 {/* Close */}
                 <div className="flex flex-col items-center ml-auto">
                     <button 
+                        onClick={handleCloseCase}
                         disabled={!closeCaseState.enabled}
                         title={closeCaseState.reason}
                         className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white border border-slate-900 rounded-md text-sm font-bold hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:border-slate-300"
