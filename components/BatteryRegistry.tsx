@@ -20,10 +20,12 @@ import {
   Factory,
   Truck,
   Users,
-  ShieldCheck
+  ShieldCheck,
+  ClipboardCheck
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
+import { getMockS9Context, S9Context } from '../stages/s9/s9Contract';
 
 // Mock Data Types
 interface RegistryPack {
@@ -154,6 +156,10 @@ export const BatteryRegistry: React.FC = () => {
   const { role } = useContext(UserContext);
   const [selectedPack, setSelectedPack] = useState<RegistryPack>(REGISTRY_DATA[0]);
 
+  // S9 Context (Read-Only Mock)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [s9Context] = useState<S9Context>(getMockS9Context());
+
   // RBAC Access Check
   const hasAccess = 
     role === UserRole.SYSTEM_ADMIN || 
@@ -188,7 +194,7 @@ export const BatteryRegistry: React.FC = () => {
       <div className="flex items-center justify-between shrink-0 border-b border-slate-200 pb-4">
         <div>
            <div className="flex items-center gap-1 text-xs text-slate-500 mb-1 font-medium uppercase tracking-wider">
-              Trace & Identity <span className="text-slate-300">/</span> Digital Twin
+              Trace & Identity <span className="text-slate-300">/</span> Final QA & Digital Twin
            </div>
            <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
              <Database className="text-brand-600" size={24} />
@@ -196,9 +202,20 @@ export const BatteryRegistry: React.FC = () => {
            </h1>
            <p className="text-slate-500 text-sm mt-1">System of Record for all manufactured units. Read-only Digital Twin (Trace) view.</p>
         </div>
-        <div className="flex items-center gap-2 bg-slate-100 text-slate-600 px-3 py-1 rounded-md text-xs font-bold border border-slate-200">
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex items-center gap-2 bg-slate-100 text-slate-600 px-3 py-1 rounded-md text-xs font-bold border border-slate-200">
              <History size={14} />
              <span>TRACE VIEW</span>
+          </div>
+          {/* S9 Context Read-Only Display */}
+          <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2 mt-1">
+             <ClipboardCheck size={10} />
+             <span>Final QA Queue: {s9Context.packsQueuedForFinalQaCount}</span>
+             <span className="text-slate-300">|</span>
+             <span className={`font-bold ${s9Context.finalQaStatus === 'APPROVED' ? 'text-green-600' : 'text-slate-600'}`}>
+                {s9Context.finalQaStatus}
+             </span>
+          </div>
         </div>
       </div>
 
