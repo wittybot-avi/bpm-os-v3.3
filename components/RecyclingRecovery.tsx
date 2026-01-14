@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { UserContext, UserRole } from '../types';
 import { 
   ShieldAlert, 
@@ -11,7 +11,7 @@ import {
   Leaf, 
   Scale, 
   FileCheck, 
-  AlertTriangle,
+  AlertTriangle, 
   ArrowRight,
   ShieldCheck,
   ClipboardList,
@@ -20,11 +20,17 @@ import {
   CheckSquare,
   Archive,
   FilePlus,
-  XCircle
+  XCircle,
+  History,
+  CheckCircle2,
+  RefreshCw
 } from 'lucide-react';
 import { getMockS13Context, S13Context } from '../stages/s13/s13Contract';
 import { getS13ActionState, S13ActionId } from '../stages/s13/s13Guards';
 import { DisabledHint } from './DisabledHint';
+import { StageStateBanner } from './StageStateBanner';
+import { PreconditionsPanel } from './PreconditionsPanel';
+import { emitAuditEvent, getAuditEvents, AuditEvent } from '../utils/auditEvents';
 
 // Mock Data Types
 interface EolUnit {
@@ -72,11 +78,128 @@ export const RecyclingRecovery: React.FC = () => {
   const { role } = useContext(UserContext);
   const [selectedUnit, setSelectedUnit] = useState<EolUnit>(INTAKE_QUEUE[0]);
 
-  // S13 Context State (Converted to state for future simulation)
+  // S13 Context State
   const [s13Context, setS13Context] = useState<S13Context>(getMockS13Context());
+  const [localEvents, setLocalEvents] = useState<AuditEvent[]>([]);
+  const [isSimulating, setIsSimulating] = useState(false);
+
+  // Load events on mount
+  useEffect(() => {
+    setLocalEvents(getAuditEvents().filter(e => e.stageId === 'S13'));
+  }, []);
 
   // Helper for Guards
   const getAction = (actionId: S13ActionId) => getS13ActionState(role, s13Context, actionId);
+
+  // Action Handlers
+  const handleOpenRequest = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS13Context(prev => ({
+        ...prev,
+        serviceStatus: 'SERVICE_OPEN',
+        serviceRequestsOpenCount: prev.serviceRequestsOpenCount + 1
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S13',
+        actionId: 'OPEN_SERVICE_REQUEST',
+        actorRole: role,
+        message: 'Service request opened. Status: SERVICE_OPEN.'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleInitiateReturn = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS13Context(prev => ({
+        ...prev,
+        serviceStatus: 'RETURN_IN_PROGRESS',
+        returnsInitiatedCount: prev.returnsInitiatedCount + 1,
+        returnsInTransitCount: prev.returnsInTransitCount + 1
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S13',
+        actionId: 'INITIATE_RETURN',
+        actorRole: role,
+        message: 'Return initiated. Status: RETURN_IN_PROGRESS.'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleConfirmReturn = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS13Context(prev => ({
+        ...prev,
+        // Transition to CLOSED to allow archiving
+        serviceStatus: 'CLOSED',
+        returnsInTransitCount: Math.max(0, prev.returnsInTransitCount - 1)
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S13',
+        actionId: 'CONFIRM_RETURN_RECEIPT',
+        actorRole: role,
+        message: 'Returned pack received. Status: CLOSED.'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 800);
+  };
+
+  const handleCloseRequest = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS13Context(prev => ({
+        ...prev,
+        serviceStatus: 'CLOSED',
+        serviceRequestsClosedCount: prev.serviceRequestsClosedCount + 1
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S13',
+        actionId: 'CLOSE_SERVICE_REQUEST',
+        actorRole: role,
+        message: 'Service request closed without return. Status: CLOSED.'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleCloseCase = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      setS13Context(prev => ({
+        ...prev,
+        serviceStatus: 'CLOSED',
+        lastServiceEventAt: now
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S13',
+        actionId: 'CLOSE_SERVICE_CASE',
+        actorRole: role,
+        message: 'Service & return case formally archived.'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleResetDemo = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS13Context(prev => ({
+        ...prev,
+        serviceStatus: 'IDLE'
+      }));
+      setIsSimulating(false);
+    }, 400);
+  };
 
   // RBAC Access Check
   const hasAccess = 
@@ -105,7 +228,7 @@ export const RecyclingRecovery: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 h-full flex flex-col animate-in fade-in duration-300">
+    <div className="space-y-6 h-full flex flex-col animate-in fade-in duration-300 pb-12">
       
       {/* Auditor Banner */}
       {isAuditor && (
@@ -145,8 +268,30 @@ export const RecyclingRecovery: React.FC = () => {
         </div>
       </div>
 
+      <StageStateBanner stageId="S13" />
+      <PreconditionsPanel stageId="S13" />
+
+      {/* Recent Local Activity Panel */}
+      {localEvents.length > 0 && (
+        <div className="bg-slate-50 border border-slate-200 rounded-md p-3 mb-6 animate-in slide-in-from-top-2">
+           <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase mb-2">
+              <History size={14} /> Recent S13 Activity (Session)
+           </div>
+           <div className="space-y-2">
+              {localEvents.slice(0, 3).map(evt => (
+                 <div key={evt.id} className="flex items-center gap-3 text-sm bg-white p-2 rounded border border-slate-100 shadow-sm">
+                    <span className="font-mono text-[10px] text-slate-400">{evt.timestamp}</span>
+                    <span className="font-bold text-slate-700 text-xs px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">{evt.actorRole}</span>
+                    <span className="text-slate-600 flex-1 truncate">{evt.message}</span>
+                    <CheckCircle2 size={14} className="text-green-500" />
+                 </div>
+              ))}
+           </div>
+        </div>
+      )}
+
       {/* Service & Returns Operations Toolbar */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-industrial-border flex flex-col md:flex-row items-center gap-4 justify-between">
+      <div className={`bg-white p-4 rounded-lg shadow-sm border border-industrial-border flex flex-col md:flex-row items-center gap-4 justify-between transition-opacity ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>
          <div className="flex items-center gap-3 w-full md:w-auto">
             <div className="p-2 bg-blue-50 text-blue-700 rounded border border-blue-100">
                <RotateCcw size={20} />
@@ -161,6 +306,7 @@ export const RecyclingRecovery: React.FC = () => {
             {/* Open Request */}
             <div className="flex flex-col items-center">
               <button 
+                onClick={handleOpenRequest}
                 disabled={!openReqState.enabled}
                 title={openReqState.reason}
                 className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white border border-blue-700 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 text-xs font-bold transition-colors shadow-sm"
@@ -172,6 +318,7 @@ export const RecyclingRecovery: React.FC = () => {
             {/* Initiate Return */}
             <div className="flex flex-col items-center">
               <button 
+                onClick={handleInitiateReturn}
                 disabled={!initReturnState.enabled}
                 title={initReturnState.reason}
                 className="flex items-center gap-2 px-3 py-2 bg-white text-slate-700 border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:text-slate-400 text-xs font-bold transition-colors"
@@ -183,6 +330,7 @@ export const RecyclingRecovery: React.FC = () => {
             {/* Confirm Receipt */}
             <div className="flex flex-col items-center">
               <button 
+                onClick={handleConfirmReturn}
                 disabled={!confirmReturnState.enabled}
                 title={confirmReturnState.reason}
                 className="flex items-center gap-2 px-3 py-2 bg-purple-50 text-purple-700 border border-purple-200 rounded hover:bg-purple-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 text-xs font-bold transition-colors"
@@ -196,6 +344,7 @@ export const RecyclingRecovery: React.FC = () => {
             {/* Close Request */}
             <div className="flex flex-col items-center">
               <button 
+                onClick={handleCloseRequest}
                 disabled={!closeReqState.enabled}
                 title={closeReqState.reason}
                 className="flex items-center gap-2 px-3 py-2 bg-white text-slate-700 border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:text-slate-400 text-xs font-bold transition-colors"
@@ -207,6 +356,7 @@ export const RecyclingRecovery: React.FC = () => {
             {/* Archive Case */}
             <div className="flex flex-col items-center">
               <button 
+                onClick={handleCloseCase}
                 disabled={!closeCaseState.enabled}
                 title={closeCaseState.reason}
                 className="flex items-center gap-2 px-3 py-2 bg-slate-800 text-white border border-slate-900 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:border-slate-300 text-xs font-bold transition-colors shadow-sm"
@@ -214,6 +364,19 @@ export const RecyclingRecovery: React.FC = () => {
                 <Archive size={14} /> Archive
               </button>
             </div>
+
+            {/* Demo Reset */}
+            {s13Context.serviceStatus === 'CLOSED' && (
+               <div className="flex flex-col items-center ml-2 border-l border-slate-200 pl-2">
+                  <button 
+                    onClick={handleResetDemo}
+                    className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-600 border border-slate-200 rounded hover:bg-slate-200 text-xs font-bold transition-colors"
+                    title="Reset for Demo"
+                  >
+                    <RefreshCw size={14} />
+                  </button>
+               </div>
+            )}
          </div>
       </div>
 
