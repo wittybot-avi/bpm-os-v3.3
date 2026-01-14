@@ -23,11 +23,15 @@ import {
   Play,
   ArrowRight,
   Radar,
-  Gavel
+  Gavel,
+  ClipboardList,
+  CheckSquare,
+  Lock
 } from 'lucide-react';
 import { getMockS14Context, S14Context } from '../stages/s14/s14Contract';
 import { getS14ActionState, S14ActionId } from '../stages/s14/s14Guards';
 import { getMockS16Context, S16Context } from '../stages/s16/s16Contract';
+import { getS16ActionState, S16ActionId } from '../stages/s16/s16Guards';
 import { DisabledHint } from './DisabledHint';
 import { emitAuditEvent, getAuditEvents, AuditEvent } from '../utils/auditEvents';
 
@@ -63,21 +67,22 @@ export const ComplianceAudit: React.FC<ComplianceAuditProps> = ({ onNavigate }) 
   // S14 Context State
   const [s14Context, setS14Context] = useState<S14Context>(getMockS14Context());
   
-  // S16 Context State (Read-only stub)
-  const [s16Context] = useState<S16Context>(getMockS16Context());
+  // S16 Context State
+  const [s16Context, setS16Context] = useState<S16Context>(getMockS16Context());
 
   const [localEvents, setLocalEvents] = useState<AuditEvent[]>([]);
   const [isSimulating, setIsSimulating] = useState(false);
 
-  // Load events on mount (Filtered for S14)
+  // Load events on mount (Filtered for S14 & S16)
   useEffect(() => {
-    setLocalEvents(getAuditEvents().filter(e => e.stageId === 'S14'));
+    setLocalEvents(getAuditEvents().filter(e => e.stageId === 'S14' || e.stageId === 'S16'));
   }, []);
 
   // Helper for Guards
-  const getAction = (actionId: S14ActionId) => getS14ActionState(role, s14Context, actionId);
+  const getS14Action = (actionId: S14ActionId) => getS14ActionState(role, s14Context, actionId);
+  const getS16Action = (actionId: S16ActionId) => getS16ActionState(role, s16Context, actionId);
 
-  // Action Handlers
+  // S14 Action Handlers
   const handleStartInspection = () => {
     setIsSimulating(true);
     setTimeout(() => {
@@ -176,6 +181,13 @@ export const ComplianceAudit: React.FC<ComplianceAuditProps> = ({ onNavigate }) 
     }, 600);
   };
 
+  // S16 Action Handlers (Placeholders for now)
+  const handleStartAudit = () => console.log('Start Audit');
+  const handleRaiseFinding = () => console.log('Raise Finding');
+  const handleResolveFinding = () => console.log('Resolve Finding');
+  const handleCloseAudit = () => console.log('Close Audit');
+  const handleExportAudit = () => console.log('Export Audit');
+
   // Nav Handlers
   const handleNavToS15 = () => {
     if (onNavigate) {
@@ -195,12 +207,19 @@ export const ComplianceAudit: React.FC<ComplianceAuditProps> = ({ onNavigate }) 
     }
   };
 
-  // Guard States
-  const startInspState = getAction('START_INSPECTION');
-  const refurbishState = getAction('MARK_FOR_REFURBISH');
-  const recycleState = getAction('MARK_FOR_RECYCLE');
-  const completeRefurbState = getAction('COMPLETE_REFURBISH');
-  const closeCaseState = getAction('CLOSE_CIRCULAR_CASE');
+  // Guard States S14
+  const startInspState = getS14Action('START_INSPECTION');
+  const refurbishState = getS14Action('MARK_FOR_REFURBISH');
+  const recycleState = getS14Action('MARK_FOR_RECYCLE');
+  const completeRefurbState = getS14Action('COMPLETE_REFURBISH');
+  const closeCaseState = getS14Action('CLOSE_CIRCULAR_CASE');
+
+  // Guard States S16
+  const startAuditState = getS16Action('START_AUDIT_REVIEW');
+  const raiseFindingState = getS16Action('RAISE_FINDING');
+  const resolveFindingState = getS16Action('MARK_FINDING_RESOLVED');
+  const closeAuditState = getS16Action('CLOSE_AUDIT');
+  const exportAuditState = getS16Action('EXPORT_AUDIT_PACK');
 
   // Next Step Readiness
   const isReadyForNext = s14Context.circularStatus === 'COMPLETED';
@@ -285,15 +304,15 @@ export const ComplianceAudit: React.FC<ComplianceAuditProps> = ({ onNavigate }) 
             </div>
           </div>
 
-          {!isAuditor && (
-            <button 
-              className="bg-white border border-slate-300 text-slate-600 px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 hover:bg-slate-50"
-              disabled
-            >
-              <Download size={16} />
-              <span>Export Audit Report</span>
-            </button>
-          )}
+          <button 
+            className="bg-white border border-slate-300 text-slate-600 px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!exportAuditState.enabled}
+            onClick={handleExportAudit}
+            title={exportAuditState.reason}
+          >
+            <Download size={16} />
+            <span>Export Audit Report</span>
+          </button>
         </div>
       </div>
 
@@ -347,11 +366,11 @@ export const ComplianceAudit: React.FC<ComplianceAuditProps> = ({ onNavigate }) 
            </div>
         </div>
 
-        {/* Recent Activity S14 Panel */}
+        {/* Recent Activity Panel */}
         {localEvents.length > 0 && (
           <div className="col-span-12 bg-slate-50 border border-slate-200 rounded-md p-3 animate-in slide-in-from-top-2">
              <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase mb-2">
-                <History size={14} /> Recent S14 Circular Activity (Session)
+                <History size={14} /> Recent Governance Activity (Session)
              </div>
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                 {localEvents.slice(0, 5).map(evt => (
@@ -366,41 +385,73 @@ export const ComplianceAudit: React.FC<ComplianceAuditProps> = ({ onNavigate }) 
           </div>
         )}
 
-        {/* Next Step Guidance Panel */}
-        <div className={`col-span-12 bg-blue-50 border border-blue-200 rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm animate-in slide-in-from-top-3 ${!onNavigate ? 'hidden' : ''}`}>
-          <div className="flex items-start gap-3">
-            <div className="p-2 bg-blue-100 rounded-full text-blue-600">
-              <ArrowRight size={20} />
+        {/* Audit & Governance Operations (S16) */}
+        <div className={`col-span-12 bg-white rounded-lg shadow-sm border border-industrial-border p-4 transition-opacity ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>
+            <div className="flex items-center gap-3 mb-4 border-b border-slate-100 pb-2">
+                <Gavel size={18} className="text-blue-600" />
+                <h3 className="font-bold text-slate-700">Audit & Governance Operations (S16)</h3>
+                <span className="text-xs text-slate-400 px-2 py-0.5 bg-slate-50 border border-slate-200 rounded">
+                    Internal & External Audit Workflow
+                </span>
             </div>
-            <div>
-              <h3 className="font-bold text-blue-900 text-sm">Next Recommended Action</h3>
-              <p className="text-xs text-blue-700 mt-1 max-w-lg">
-                {isReadyForNext 
-                  ? "Circular lifecycle case finalized. Proceed to Compliance / ESG (S15) for reporting." 
-                  : "Circular processing active. Complete inspection, refurbish/recycle, and close case to proceed."}
-              </p>
+            
+            <div className="flex flex-wrap gap-4">
+                {/* Start Audit */}
+                <div className="flex flex-col items-center">
+                    <button 
+                        onClick={handleStartAudit}
+                        disabled={!startAuditState.enabled}
+                        title={startAuditState.reason}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-md text-sm font-bold hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-300"
+                    >
+                        <Play size={16} /> Start Review
+                    </button>
+                    {!startAuditState.enabled && <DisabledHint reason={startAuditState.reason || 'Blocked'} className="mt-1" />}
+                </div>
+
+                <div className="w-px bg-slate-200 h-10"></div>
+
+                {/* Raise Finding */}
+                <div className="flex flex-col items-center">
+                    <button 
+                        onClick={handleRaiseFinding}
+                        disabled={!raiseFindingState.enabled}
+                        title={raiseFindingState.reason}
+                        className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 border border-amber-200 rounded-md text-sm font-bold hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-300"
+                    >
+                        <Flag size={16} /> Raise Finding
+                    </button>
+                    {!raiseFindingState.enabled && <DisabledHint reason={raiseFindingState.reason || 'Blocked'} className="mt-1" />}
+                </div>
+
+                {/* Resolve Finding */}
+                <div className="flex flex-col items-center">
+                    <button 
+                        onClick={handleResolveFinding}
+                        disabled={!resolveFindingState.enabled}
+                        title={resolveFindingState.reason}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 border border-green-200 rounded-md text-sm font-bold hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-300"
+                    >
+                        <CheckSquare size={16} /> Resolve Finding
+                    </button>
+                    {!resolveFindingState.enabled && <DisabledHint reason={resolveFindingState.reason || 'Blocked'} className="mt-1" />}
+                </div>
+
+                <div className="w-px bg-slate-200 h-10"></div>
+
+                {/* Close Audit */}
+                <div className="flex flex-col items-center ml-auto">
+                    <button 
+                        onClick={handleCloseAudit}
+                        disabled={!closeAuditState.enabled}
+                        title={closeAuditState.reason}
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white border border-slate-900 rounded-md text-sm font-bold hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:border-slate-300"
+                    >
+                        <Lock size={16} /> Close Audit
+                    </button>
+                    {!closeAuditState.enabled && <DisabledHint reason={closeAuditState.reason || 'Blocked'} className="mt-1" />}
+                </div>
             </div>
-          </div>
-          <div className="flex gap-3 w-full sm:w-auto">
-             <button 
-               onClick={handleNavToControlTower} 
-               className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-blue-200 text-blue-700 rounded-md text-xs font-bold hover:bg-blue-100 transition-colors"
-             >
-               <Radar size={14} /> Control Tower
-             </button>
-             <div className="flex-1 sm:flex-none flex flex-col items-center">
-               <button 
-                 onClick={handleNavToS15} 
-                 disabled={!isReadyForNext}
-                 className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-xs font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
-               >
-                 <FileText size={14} /> Go to S15: Compliance / ESG
-               </button>
-               {!isReadyForNext && (
-                  <span className="text-[9px] text-red-500 mt-1 font-medium">Case Not Closed</span>
-               )}
-             </div>
-          </div>
         </div>
 
         {/* Circular Processing Operations (S14 Actions) */}
