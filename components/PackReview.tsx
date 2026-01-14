@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { UserContext, UserRole } from '../types';
 import { 
   ShieldAlert, 
@@ -21,13 +21,15 @@ import {
   Play,
   FastForward,
   LogOut,
-  Timer
+  Timer,
+  CheckCircle2
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
 import { DisabledHint } from './DisabledHint';
 import { getMockS8Context, S8Context } from '../stages/s8/s8Contract';
 import { getS8ActionState, S8ActionId } from '../stages/s8/s8Guards';
+import { emitAuditEvent, getAuditEvents, AuditEvent } from '../utils/auditEvents';
 
 // Mock Data Types
 interface ReviewPack {
@@ -84,12 +86,95 @@ export const PackReview: React.FC = () => {
   const [selectedPack, setSelectedPack] = useState<ReviewPack>(PACK_QUEUE[0]);
   const [notes, setNotes] = useState('');
 
-  // S8 Context (Read-Only Mock)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [s8Context] = useState<S8Context>(getMockS8Context());
+  // S8 Context & Event State
+  const [s8Context, setS8Context] = useState<S8Context>(getMockS8Context());
+  const [localEvents, setLocalEvents] = useState<AuditEvent[]>([]);
+  const [isSimulating, setIsSimulating] = useState(false);
+
+  // Load events on mount
+  useEffect(() => {
+    setLocalEvents(getAuditEvents().filter(e => e.stageId === 'S8'));
+  }, []);
 
   // Helper for Guards
   const getAction = (actionId: S8ActionId) => getS8ActionState(role, s8Context, actionId);
+
+  // Action Handlers
+  const handleStartAging = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      setS8Context(prev => ({
+        ...prev,
+        agingStatus: 'AGING',
+        packsUnderAgingCount: prev.packsUnderAgingCount + 1,
+        lastSoakCycleStartedAt: now
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S8',
+        actionId: 'START_AGING_CYCLE',
+        actorRole: role,
+        message: 'Aging cycle started for queued packs'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleStartSoak = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS8Context(prev => ({
+        ...prev,
+        agingStatus: 'SOAKING'
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S8',
+        actionId: 'START_SOAK_CYCLE',
+        actorRole: role,
+        message: 'Soak cycle started (High Temperature Stress)'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleCompleteSoak = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS8Context(prev => ({
+        ...prev,
+        agingStatus: 'COMPLETED',
+        packsCompletedAgingCount: prev.packsCompletedAgingCount + 1,
+        packsUnderAgingCount: Math.max(0, prev.packsUnderAgingCount - 1)
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S8',
+        actionId: 'COMPLETE_SOAK',
+        actorRole: role,
+        message: 'Aging & soak cycle completed successfully'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 800);
+  };
+
+  const handleRelease = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      // In a real loop, we might reset to IDLE, but per requirements we keep COMPLETED state
+      // unless we want to allow re-running the demo. 
+      // Let's keep it simple and just emit event as per instructions.
+      const evt = emitAuditEvent({
+        stageId: 'S8',
+        actionId: 'RELEASE_FROM_AGING',
+        actorRole: role,
+        message: 'Packs released from aging & soak chamber'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
 
   // RBAC Access Check
   const hasAccess = 
@@ -134,6 +219,7 @@ export const PackReview: React.FC = () => {
           <div className="flex items-center gap-2">
              <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
                  s8Context.agingStatus === 'AGING' || s8Context.agingStatus === 'SOAKING' ? 'bg-blue-100 text-blue-700 animate-pulse' :
+                 s8Context.agingStatus === 'COMPLETED' ? 'bg-green-100 text-green-700' :
                  'bg-slate-100 text-slate-600'
              }`}>
                 <Thermometer size={14} /> Status: {s8Context.agingStatus}
@@ -151,8 +237,27 @@ export const PackReview: React.FC = () => {
       <StageStateBanner stageId="S8" />
       <PreconditionsPanel stageId="S8" />
 
+      {/* Recent Local Activity Panel */}
+      {localEvents.length > 0 && (
+        <div className="bg-slate-50 border border-slate-200 rounded-md p-3 mb-6 animate-in slide-in-from-top-2">
+           <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase mb-2">
+              <History size={14} /> Recent S8 Activity (Session)
+           </div>
+           <div className="space-y-2">
+              {localEvents.slice(0, 3).map(evt => (
+                 <div key={evt.id} className="flex items-center gap-3 text-sm bg-white p-2 rounded border border-slate-100 shadow-sm">
+                    <span className="font-mono text-[10px] text-slate-400">{evt.timestamp}</span>
+                    <span className="font-bold text-slate-700 text-xs px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">{evt.actorRole}</span>
+                    <span className="text-slate-600 flex-1 truncate">{evt.message}</span>
+                    <CheckCircle2 size={14} className="text-green-500" />
+                 </div>
+              ))}
+           </div>
+        </div>
+      )}
+
       {/* Main Grid */}
-      <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
+      <div className={`flex-1 grid grid-cols-12 gap-6 min-h-0 ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>
         
         {/* Left Col: Review Queue */}
         <div className="col-span-4 bg-white rounded-lg shadow-sm border border-industrial-border flex flex-col overflow-hidden">
@@ -239,6 +344,7 @@ export const PackReview: React.FC = () => {
                   {/* Start Aging */}
                   <div className="flex-1">
                      <button 
+                       onClick={handleStartAging}
                        disabled={!startAgingState.enabled}
                        className="w-full flex flex-col items-center justify-center p-3 bg-white border border-blue-200 rounded-md hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white text-blue-800"
                        title={startAgingState.reason}
@@ -252,6 +358,7 @@ export const PackReview: React.FC = () => {
                   {/* Start Soak */}
                   <div className="flex-1">
                      <button 
+                       onClick={handleStartSoak}
                        disabled={!startSoakState.enabled}
                        className="w-full flex flex-col items-center justify-center p-3 bg-white border border-blue-200 rounded-md hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white text-blue-800"
                        title={startSoakState.reason}
@@ -265,6 +372,7 @@ export const PackReview: React.FC = () => {
                   {/* Complete Soak */}
                   <div className="flex-1">
                      <button 
+                       onClick={handleCompleteSoak}
                        disabled={!completeSoakState.enabled}
                        className="w-full flex flex-col items-center justify-center p-3 bg-white border border-blue-200 rounded-md hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white text-blue-800"
                        title={completeSoakState.reason}
@@ -278,6 +386,7 @@ export const PackReview: React.FC = () => {
                   {/* Release */}
                   <div className="flex-1">
                      <button 
+                       onClick={handleRelease}
                        disabled={!releaseState.enabled}
                        className="w-full flex flex-col items-center justify-center p-3 bg-green-600 border border-green-700 rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:border-slate-300 disabled:text-slate-400 text-white"
                        title={releaseState.reason}
