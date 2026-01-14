@@ -16,6 +16,7 @@ import {
   Archive,
   CheckSquare
 } from 'lucide-react';
+import { StageStateBanner } from './StageStateBanner';
 
 // Mock Data Types
 interface UnpackedItem {
@@ -98,6 +99,8 @@ export const PackagingAggregation: React.FC = () => {
              <span>SCALE: 0.00 kg</span>
         </div>
       </div>
+
+      <StageStateBanner stageId="S12" />
 
       {/* Main Grid */}
       <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">

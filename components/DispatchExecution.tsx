@@ -14,6 +14,7 @@ import {
   Scale,
   LogOut
 } from 'lucide-react';
+import { StageStateBanner } from './StageStateBanner';
 
 // Mock Data Types
 interface AuthorizedUnit {
@@ -106,6 +107,8 @@ export const DispatchExecution: React.FC = () => {
              <span>OUTBOUND DOCK ACTIVE</span>
         </div>
       </div>
+
+      <StageStateBanner stageId="S14" />
 
       {/* Main Grid */}
       <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">

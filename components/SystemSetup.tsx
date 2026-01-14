@@ -1,6 +1,7 @@
 import React, { useContext } from 'react';
 import { UserContext, UserRole, APP_VERSION } from '../types';
 import { ShieldAlert, Factory, Settings, FileText, Globe, Users } from 'lucide-react';
+import { StageStateBanner } from './StageStateBanner';
 
 export const SystemSetup: React.FC = () => {
   const { role } = useContext(UserContext);
@@ -35,6 +36,8 @@ export const SystemSetup: React.FC = () => {
           READ ONLY MODE
         </div>
       </div>
+
+      <StageStateBanner stageId="S0" />
 
       {/* Grid Layout */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

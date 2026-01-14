@@ -17,6 +17,7 @@ import {
   Archive,
   Scale
 } from 'lucide-react';
+import { StageStateBanner } from './StageStateBanner';
 
 // Mock Data Types
 interface InventoryItem {
@@ -124,6 +125,8 @@ export const FinishedGoods: React.FC = () => {
              <span>WAREHOUSE: ONLINE</span>
         </div>
       </div>
+
+      <StageStateBanner stageId="S11" />
 
       {/* Main Grid */}
       <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">

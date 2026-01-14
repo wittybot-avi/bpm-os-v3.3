@@ -14,6 +14,7 @@ import {
   Activity,
   Cpu
 } from 'lucide-react';
+import { StageStateBanner } from './StageStateBanner';
 
 // Mock Data Types
 interface ActivePackBatch {
@@ -99,6 +100,8 @@ export const PackAssembly: React.FC = () => {
              </span>
         </div>
       </div>
+
+      <StageStateBanner stageId="S7" />
 
       {/* Active Batch Banner */}
       <div className="bg-slate-900 text-white rounded-lg p-6 shadow-md shrink-0 border border-slate-700 relative overflow-hidden">

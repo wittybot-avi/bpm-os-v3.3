@@ -16,6 +16,7 @@ import {
   History,
   Zap
 } from 'lucide-react';
+import { StageStateBanner } from './StageStateBanner';
 
 // Mock Data Types
 interface ReviewPack {
@@ -106,6 +107,8 @@ export const PackReview: React.FC = () => {
            <p className="text-slate-500 text-sm mt-1">End-of-Line (EOL) validation and final release decision.</p>
         </div>
       </div>
+
+      <StageStateBanner stageId="S8" />
 
       {/* Main Grid */}
       <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">

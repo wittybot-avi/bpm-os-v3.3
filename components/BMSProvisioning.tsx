@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   Radio
 } from 'lucide-react';
+import { StageStateBanner } from './StageStateBanner';
 
 // Mock Data Types
 interface ProvisioningPack {
@@ -96,6 +97,8 @@ export const BMSProvisioning: React.FC = () => {
              <span>CAN-BUS: ONLINE</span>
         </div>
       </div>
+
+      <StageStateBanner stageId="S10" />
 
       {/* Main Grid */}
       <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">

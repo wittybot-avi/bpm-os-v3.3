@@ -13,6 +13,7 @@ import {
   Search,
   FileText
 } from 'lucide-react';
+import { StageStateBanner } from './StageStateBanner';
 
 // Mock Data Types
 interface QAModule {
@@ -113,6 +114,8 @@ export const ModuleQA: React.FC = () => {
            <p className="text-slate-500 text-sm mt-1">Inspect assembled modules, record measurements, and assign quality disposition.</p>
         </div>
       </div>
+
+      <StageStateBanner stageId="S6" />
 
       {/* Main Grid */}
       <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">

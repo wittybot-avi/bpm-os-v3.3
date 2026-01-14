@@ -27,6 +27,7 @@ import {
   Stamp,
   LifeBuoy
 } from 'lucide-react';
+import { GateNotice } from './GateNotice';
 
 interface RunbookDetailProps {
   runbookId: string | null;
@@ -398,19 +399,18 @@ const RUNBOOKS: Record<string, RunbookData> = {
 export const RunbookDetail: React.FC<RunbookDetailProps> = ({ runbookId, onNavigate }) => {
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
 
-  // Fallback if invalid ID
+  // V33-OPS-FP-11: Gate Notice for missing context
   if (!runbookId || !RUNBOOKS[runbookId]) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-slate-500">
-        <AlertOctagon size={48} className="mb-4 text-slate-300" aria-hidden="true" />
-        <h2 className="text-xl font-bold">Runbook Not Found</h2>
-        <button 
-          onClick={() => onNavigate('control_tower')}
-          className="mt-4 text-brand-600 hover:underline flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-brand-500 rounded px-2 py-1"
-        >
-          <ArrowLeft size={16} aria-hidden="true" /> Return to Control Tower
-        </button>
-      </div>
+      <GateNotice 
+        title="BLOCKED"
+        reason="Runbook not selected"
+        requiredAction="Select a Runbook from Control Tower → Runbooks"
+        primaryLabel="Go to Control Tower"
+        onPrimary={() => onNavigate('control_tower')}
+        secondaryLabel="Go to Dashboard"
+        onSecondary={() => onNavigate('dashboard')}
+      />
     );
   }
 

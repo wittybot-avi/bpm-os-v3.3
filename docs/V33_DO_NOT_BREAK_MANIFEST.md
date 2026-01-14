@@ -28,3 +28,7 @@ Any patch applied to V3.3 must **NOT** violate the following:
 *   [ ] **Role Test:** Role switcher updates the context and restricts views appropriately.
 *   [ ] **Component Test:** Control Tower loads runbook cards; HUD is visible and expandable.
 *   [ ] **Console Cleanliness:** No critical console errors on initial load.
+
+## 4. UX Patterns (V3.3)
+*   **GateNotice Pattern:** Context-dependent views (like Runbook Detail) must render a "Blocked" GateNotice when context is missing, guiding the user back to the selection point.
+*   **StageStateBanner:** All S0–S17 screens must include the `StageStateBanner` component to indicate operational readiness.

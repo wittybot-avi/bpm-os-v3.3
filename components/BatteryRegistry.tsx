@@ -22,6 +22,7 @@ import {
   Users,
   ShieldCheck
 } from 'lucide-react';
+import { StageStateBanner } from './StageStateBanner';
 
 // Mock Data Types
 interface RegistryPack {
@@ -199,6 +200,8 @@ export const BatteryRegistry: React.FC = () => {
              <span>TRACE VIEW</span>
         </div>
       </div>
+
+      <StageStateBanner stageId="S9" />
 
       {/* Main Grid */}
       <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">

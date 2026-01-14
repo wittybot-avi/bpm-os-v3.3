@@ -14,6 +14,7 @@ import {
   Box,
   Layers
 } from 'lucide-react';
+import { StageStateBanner } from './StageStateBanner';
 
 // Mock Data Types
 interface SKU {
@@ -123,6 +124,8 @@ export const SKUBlueprint: React.FC = () => {
           <span>+ Create New SKU</span>
         </button>
       </div>
+
+      <StageStateBanner stageId="S1" />
 
       {/* Content Split View */}
       <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">

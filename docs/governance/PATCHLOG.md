@@ -98,3 +98,5 @@ TEMPLATE:
 | **V33-DOC-FP-08** | Documentation Loader Stabilization | 2026-01-16 00:30 (IST) | Switched to fetch() for docs to fix build errors. Reduced artifacts.ts size. | No |
 | **V33-DOC-HO-09** | Governance Docs Single Source | 2026-01-16 00:45 (IST) | Removed root duplicates; /docs/governance is single source. | No |
 | **V33-CORE-FP-10** | Error Boundary UX Guard | 2026-01-16 01:00 (IST) | Added Error Boundary UX guard to prevent white screen and enable recovery. | Yes |
+| **V33-OPS-FP-11** | Runbook Gate Semantics | 2026-01-16 01:15 (IST) | Standardized Runbook gating UX (BLOCKED / reason / action) for missing context. | Yes |
+| **V33-OPS-FP-12** | Stage Operational State Banner | 2026-01-16 01:30 (IST) | Added read-only Stage Operational State banner across S0–S17. | No |
