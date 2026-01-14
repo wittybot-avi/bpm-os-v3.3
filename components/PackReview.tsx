@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { UserContext, UserRole } from '../types';
+import { UserContext, UserRole, NavView } from '../types';
 import { 
   ShieldAlert, 
   FileCheck, 
@@ -22,7 +22,9 @@ import {
   FastForward,
   LogOut,
   Timer,
-  CheckCircle2
+  CheckCircle2,
+  ArrowRight,
+  Radar
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
@@ -81,7 +83,11 @@ const PACK_QUEUE: ReviewPack[] = [
   }
 ];
 
-export const PackReview: React.FC = () => {
+interface PackReviewProps {
+  onNavigate?: (view: NavView) => void;
+}
+
+export const PackReview: React.FC<PackReviewProps> = ({ onNavigate }) => {
   const { role } = useContext(UserContext);
   const [selectedPack, setSelectedPack] = useState<ReviewPack>(PACK_QUEUE[0]);
   const [notes, setNotes] = useState('');
@@ -176,6 +182,25 @@ export const PackReview: React.FC = () => {
     }, 600);
   };
 
+  // Navigation Handlers
+  const handleNavToS9 = () => {
+    if (onNavigate) {
+      emitAuditEvent({
+        stageId: 'S8',
+        actionId: 'NAV_NEXT_STAGE',
+        actorRole: role,
+        message: 'Navigated to S9: Battery Registry (Final QA) from S8 Next Step panel'
+      });
+      onNavigate('battery_registry');
+    }
+  };
+
+  const handleNavToControlTower = () => {
+    if (onNavigate) {
+      onNavigate('control_tower');
+    }
+  };
+
   // RBAC Access Check
   const hasAccess = 
     role === UserRole.SYSTEM_ADMIN || 
@@ -255,6 +280,43 @@ export const PackReview: React.FC = () => {
            </div>
         </div>
       )}
+
+      {/* Next Step Guidance Panel */}
+      <div className={`bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm animate-in slide-in-from-top-3 ${!onNavigate ? 'hidden' : ''}`}>
+        <div className="flex items-start gap-3">
+          <div className="p-2 bg-blue-100 rounded-full text-blue-600">
+            <ArrowRight size={20} />
+          </div>
+          <div>
+            <h3 className="font-bold text-blue-900 text-sm">Next Recommended Action</h3>
+            <p className="text-xs text-blue-700 mt-1 max-w-lg">
+              {s8Context.agingStatus === 'COMPLETED'
+                ? "Aging cycle complete. Proceed to S9 for Final QA and Digital Twin registration."
+                : "Aging & soak in progress. Complete the cycle to unlock Final QA handoff."}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 w-full sm:w-auto">
+           <button 
+             onClick={handleNavToControlTower} 
+             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-blue-200 text-blue-700 rounded-md text-xs font-bold hover:bg-blue-100 transition-colors"
+           >
+             <Radar size={14} /> Control Tower
+           </button>
+           <div className="flex-1 sm:flex-none flex flex-col items-center">
+             <button 
+               onClick={handleNavToS9} 
+               disabled={s8Context.agingStatus !== 'COMPLETED'}
+               className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-xs font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+             >
+               <Database size={14} /> Go to S9: Final QA
+             </button>
+             {s8Context.agingStatus !== 'COMPLETED' && (
+                <span className="text-[9px] text-red-500 mt-1 font-medium">Aging Not Complete</span>
+             )}
+           </div>
+        </div>
+      </div>
 
       {/* Main Grid */}
       <div className={`flex-1 grid grid-cols-12 gap-6 min-h-0 ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>

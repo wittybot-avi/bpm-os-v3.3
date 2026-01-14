@@ -137,3 +137,4 @@ TEMPLATE:
 | **V33-S8-BP-01** | S8 Stage Contract Stub | 2026-01-16 10:15 (IST) | Added S8 Aging & Soak context contract + mock data scaffold; S8 screen reads it (read-only). | No |
 | **V33-S8-FP-02** | S8 State Guard by Role | 2026-01-16 10:30 (IST) | Added S8 role/status UI guards with blocked reasons; no workflow change. | No |
 | **V33-S8-PP-03** | S8 Simulated Actions | 2026-01-16 10:45 (IST) | S8 actions simulate aging & soak lifecycle; audit events emitted (frontend-only). | Yes |
+| **V33-S8-PP-04** | S8 Workflow Navigation Wiring | 2026-01-16 11:00 (IST) | Added S8 Next Step navigation panel guiding flow to S9 Final QA. | Yes |
