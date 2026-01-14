@@ -12,10 +12,12 @@ import {
   Wrench,
   Zap,
   Activity,
-  Cpu
+  Cpu,
+  Database
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
+import { getMockS7Context, S7Context } from '../stages/s7/s7Contract';
 
 // Mock Data Types
 interface ActivePackBatch {
@@ -61,6 +63,10 @@ const TASKS: PackTask[] = [
 export const PackAssembly: React.FC = () => {
   const { role } = useContext(UserContext);
   const [localCount, setLocalCount] = useState(ACTIVE_BATCH.completedQty);
+  
+  // S7 Context (Read-Only Mock)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [s7Context] = useState<S7Context>(getMockS7Context());
 
   // RBAC Access Check
   const hasAccess = 
@@ -95,10 +101,22 @@ export const PackAssembly: React.FC = () => {
            </h1>
            <p className="text-slate-500 text-sm mt-1">Operator Interface: Pack Integration & Enclosure Sealing.</p>
         </div>
-        <div className="flex items-center gap-2">
-             <span className="flex items-center gap-1.5 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold uppercase tracking-wider animate-pulse">
-                <Activity size={14} /> Assembly Active
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex items-center gap-2">
+             <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                 s7Context.assemblyStatus === 'ASSEMBLING' ? 'bg-green-100 text-green-700 animate-pulse' :
+                 s7Context.assemblyStatus === 'PAUSED' ? 'bg-amber-100 text-amber-700' :
+                 'bg-slate-100 text-slate-600'
+             }`}>
+                <Activity size={14} /> Line {s7Context.assemblyStatus}
              </span>
+          </div>
+          <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2 mt-1">
+            <Database size={10} />
+            <span>Planned: {s7Context.packsPlannedCount}</span>
+            <span className="text-slate-300">|</span>
+            <span className="text-green-600 font-bold">Done: {s7Context.packsCompletedCount}</span>
+          </div>
         </div>
       </div>
 
