@@ -16,7 +16,9 @@ import {
   Archive,
   Plus,
   History,
-  RotateCcw
+  RotateCcw,
+  ArrowRight,
+  Radar
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
@@ -69,7 +71,11 @@ const TERMS: CommercialTerm[] = [
   { id: 'tm-002', skuRef: 'BP-LTO-24V-1K', moq: '1,000 Units', leadTime: '16 Weeks', priceBand: '$350 - $380 / kWh', contractStatus: 'Draft' },
 ];
 
-export const Procurement: React.FC = () => {
+interface ProcurementProps {
+  onNavigate?: (view: NavView) => void;
+}
+
+export const Procurement: React.FC<ProcurementProps> = ({ onNavigate }) => {
   const { role } = useContext(UserContext);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier>(SUPPLIERS[0]);
 
@@ -185,12 +191,34 @@ export const Procurement: React.FC = () => {
     }, 800);
   };
 
+  // Navigation Handlers
+  const handleNavToS3 = () => {
+    if (onNavigate) {
+      emitAuditEvent({
+        stageId: 'S2',
+        actionId: 'NAV_NEXT_STAGE',
+        actorRole: role,
+        message: 'Navigated to S3: Inbound Receipt from S2'
+      });
+      onNavigate('inbound_receipt');
+    }
+  };
+
+  const handleNavToControlTower = () => {
+    if (onNavigate) {
+      onNavigate('control_tower');
+    }
+  };
+
   // Pre-calculate action states
   const createPoState = getAction('CREATE_PO');
   const submitPoState = getAction('SUBMIT_PO_FOR_APPROVAL');
   const approvePoState = getAction('APPROVE_PO');
   const issuePoState = getAction('ISSUE_PO_TO_VENDOR');
   const closeCycleState = getAction('CLOSE_PROCUREMENT_CYCLE');
+
+  // Logic for Next Step
+  const isReadyForNext = s2Context.procurementStatus === 'APPROVED';
 
   // RBAC Access Check
   const hasAccess = 
@@ -272,6 +300,43 @@ export const Procurement: React.FC = () => {
            </div>
         </div>
       )}
+
+      {/* Next Step Guidance Panel */}
+      <div className={`bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm animate-in slide-in-from-top-3 ${!onNavigate ? 'hidden' : ''}`}>
+        <div className="flex items-start gap-3">
+          <div className="p-2 bg-blue-100 rounded-full text-blue-600">
+            <ArrowRight size={20} />
+          </div>
+          <div>
+            <h3 className="font-bold text-blue-900 text-sm">Next Recommended Action</h3>
+            <p className="text-xs text-blue-700 mt-1 max-w-lg">
+              {isReadyForNext 
+                ? "Procurement cycle complete. Proceed to Inbound Receipt (S3) to process incoming materials." 
+                : "Procurement active. Complete approval cycle to unlock Inbound Logistics."}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 w-full sm:w-auto">
+           <button 
+             onClick={handleNavToControlTower} 
+             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-blue-200 text-blue-700 rounded-md text-xs font-bold hover:bg-blue-100 transition-colors"
+           >
+             <Radar size={14} /> Control Tower
+           </button>
+           <div className="flex-1 sm:flex-none flex flex-col items-center">
+             <button 
+               onClick={handleNavToS3} 
+               disabled={!isReadyForNext}
+               className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-xs font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+             >
+               <Truck size={14} /> Go to S3: Inbound
+             </button>
+             {!isReadyForNext && (
+                <span className="text-[9px] text-red-500 mt-1 font-medium">Wait for Approval</span>
+             )}
+           </div>
+        </div>
+      </div>
 
       {/* Procurement Lifecycle Toolbar */}
       <div className={`bg-white p-4 rounded-lg shadow-sm border border-industrial-border flex flex-col md:flex-row items-center gap-4 justify-between transition-opacity ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>
