@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { UserContext, UserRole, APP_VERSION } from '../types';
+import { UserContext, UserRole, APP_VERSION, NavView } from '../types';
 import { 
   ShieldAlert, 
   Factory, 
@@ -13,7 +13,10 @@ import {
   RefreshCw,
   Lock,
   History,
-  CheckCircle2
+  CheckCircle2,
+  ArrowRight,
+  Radar,
+  Cpu
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
@@ -22,7 +25,11 @@ import { getMockS0Context, S0Context } from '../stages/s0/s0Contract';
 import { getS0ActionState, S0ActionId } from '../stages/s0/s0Guards';
 import { emitAuditEvent, getAuditEvents, AuditEvent } from '../utils/auditEvents';
 
-export const SystemSetup: React.FC = () => {
+interface SystemSetupProps {
+  onNavigate?: (view: NavView) => void;
+}
+
+export const SystemSetup: React.FC<SystemSetupProps> = ({ onNavigate }) => {
   const { role } = useContext(UserContext);
   
   // Local State for Simulation (instead of static mock)
@@ -106,6 +113,24 @@ export const SystemSetup: React.FC = () => {
     }, 1200);
   };
 
+  const handleNavToS1 = () => {
+    if (onNavigate) {
+      emitAuditEvent({
+        stageId: 'S0',
+        actionId: 'NAV_NEXT_STAGE',
+        actorRole: role,
+        message: 'Navigated to S1: SKU & Blueprint from S0'
+      });
+      onNavigate('sku_blueprint');
+    }
+  };
+
+  const handleNavToControlTower = () => {
+    if (onNavigate) {
+      onNavigate('control_tower');
+    }
+  };
+
   const hasAccess = role === UserRole.SYSTEM_ADMIN || role === UserRole.MANAGEMENT || role === UserRole.COMPLIANCE;
 
   if (!hasAccess) {
@@ -123,6 +148,8 @@ export const SystemSetup: React.FC = () => {
   const manageLinesState = getAction('MANAGE_LINES');
   const updateRegsState = getAction('UPDATE_REGULATIONS');
   const syncSopState = getAction('SYNC_SOP');
+
+  const isReadyForNext = s0Context.status === 'READY';
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300 pb-12">
@@ -169,6 +196,43 @@ export const SystemSetup: React.FC = () => {
            </div>
         </div>
       )}
+
+      {/* Next Step Guidance Panel */}
+      <div className={`bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm animate-in slide-in-from-top-3 ${!onNavigate ? 'hidden' : ''}`}>
+        <div className="flex items-start gap-3">
+          <div className="p-2 bg-blue-100 rounded-full text-blue-600">
+            <ArrowRight size={20} />
+          </div>
+          <div>
+            <h3 className="font-bold text-blue-900 text-sm">Next Recommended Action</h3>
+            <p className="text-xs text-blue-700 mt-1 max-w-lg">
+              {isReadyForNext 
+                ? "System configuration is valid. Proceed to Product Definition (S1) to define SKUs and blueprints." 
+                : "Configuration pending. Complete S0 setup actions to unlock downstream stages."}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 w-full sm:w-auto">
+           <button 
+             onClick={handleNavToControlTower} 
+             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-blue-200 text-blue-700 rounded-md text-xs font-bold hover:bg-blue-100 transition-colors"
+           >
+             <Radar size={14} /> Control Tower
+           </button>
+           <div className="flex-1 sm:flex-none flex flex-col items-center">
+             <button 
+               onClick={handleNavToS1} 
+               disabled={!isReadyForNext}
+               className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-xs font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+             >
+               <Cpu size={14} /> Go to S1: Blueprint
+             </button>
+             {!isReadyForNext && (
+                <span className="text-[9px] text-red-500 mt-1 font-medium">Preconditions Not Met</span>
+             )}
+           </div>
+        </div>
+      </div>
 
       {/* Grid Layout */}
       <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>
