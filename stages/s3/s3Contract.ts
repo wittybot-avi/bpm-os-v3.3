@@ -19,10 +19,10 @@ export interface S3Context {
  */
 export const getMockS3Context = (): S3Context => ({
   inboundShipmentCount: 3,
-  lotsAwaitingInspectionCount: 1,
-  itemsAwaitingSerializationCount: 500,
+  lotsAwaitingInspectionCount: 0,
+  itemsAwaitingSerializationCount: 0,
   serializedItemsCount: 4500,
   lastReceiptAt: '2026-01-11 08:30 IST',
-  inboundStatus: 'SERIALIZATION', // Active state to demonstrate specific button enablement
+  inboundStatus: 'AWAITING_RECEIPT', // Start of flow
   procurementDependency: 'OK'
 });

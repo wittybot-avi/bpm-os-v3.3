@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { UserContext, UserRole } from '../types';
 import { 
   ShieldAlert, 
@@ -11,13 +11,18 @@ import {
   AlertTriangle, 
   CheckCircle2, 
   List,
-  Database
+  Database,
+  History,
+  Play,
+  Save,
+  Search
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
 import { DisabledHint } from './DisabledHint';
 import { getMockS3Context, S3Context } from '../stages/s3/s3Contract';
 import { getS3ActionState, S3ActionId } from '../stages/s3/s3Guards';
+import { emitAuditEvent, getAuditEvents, AuditEvent } from '../utils/auditEvents';
 
 // Mock Data Types
 interface Shipment {
@@ -83,18 +88,120 @@ export const InboundReceipt: React.FC = () => {
   const { role } = useContext(UserContext);
   const [selectedShipment, setSelectedShipment] = useState<Shipment>(SHIPMENTS[0]);
   
-  // S3 Context & Guards
-  const [s3Context] = useState<S3Context>(getMockS3Context());
-  const getAction = (action: S3ActionId) => getS3ActionState(role, s3Context, action);
+  // Local State for S3 Context Simulation
+  const [s3Context, setS3Context] = useState<S3Context>(getMockS3Context());
+  const [localEvents, setLocalEvents] = useState<AuditEvent[]>([]);
+  const [isSimulating, setIsSimulating] = useState(false);
 
+  // Load events on mount
+  useEffect(() => {
+    setLocalEvents(getAuditEvents().filter(e => e.stageId === 'S3'));
+  }, []);
+
+  // Helper to resolve action state
+  const getAction = (actionId: S3ActionId) => getS3ActionState(role, s3Context, actionId);
+
+  // Action Handlers
+  const handleRecordReceipt = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      setS3Context(prev => ({ 
+        ...prev, 
+        inboundStatus: 'INSPECTION',
+        lastReceiptAt: now,
+        lotsAwaitingInspectionCount: prev.lotsAwaitingInspectionCount + 1
+      }));
+      
+      const evt = emitAuditEvent({
+        stageId: 'S3',
+        actionId: 'RECORD_RECEIPT',
+        actorRole: role,
+        message: `Registered arrival for ${selectedShipment.shipmentId} (Gate Entry)`
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      
+      // Update local shipment state for UI feedback
+      setSelectedShipment(prev => ({ ...prev, status: 'Received', receivedQty: prev.expectedQty }));
+      setIsSimulating(false);
+    }, 800);
+  };
+
+  const handleStartInspection = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      // Transition from Inspection to Serialization
+      setS3Context(prev => ({ 
+        ...prev, 
+        inboundStatus: 'SERIALIZATION',
+        lotsAwaitingInspectionCount: Math.max(0, prev.lotsAwaitingInspectionCount - 1),
+        itemsAwaitingSerializationCount: prev.itemsAwaitingSerializationCount + 5000
+      }));
+      
+      const evt = emitAuditEvent({
+        stageId: 'S3',
+        actionId: 'COMPLETE_INSPECTION',
+        actorRole: role,
+        message: 'Inbound QC completed. Lot released for serialization.'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 1000);
+  };
+
+  const handleSerialization = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS3Context(prev => ({ 
+        ...prev, 
+        inboundStatus: 'STORED',
+        itemsAwaitingSerializationCount: 0,
+        serializedItemsCount: prev.serializedItemsCount + 5000
+      }));
+      
+      const evt = emitAuditEvent({
+        stageId: 'S3',
+        actionId: 'START_SERIALIZATION',
+        actorRole: role,
+        message: 'Generated 5000 Unique Cell IDs. Inventory updated.'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 1200);
+  };
+
+  const handleMoveToStorage = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS3Context(prev => ({ 
+        ...prev, 
+        inboundStatus: 'AWAITING_RECEIPT', // Cycle resets for next shipment
+        inboundShipmentCount: Math.max(0, prev.inboundShipmentCount - 1)
+      }));
+      
+      const evt = emitAuditEvent({
+        stageId: 'S3',
+        actionId: 'MOVE_TO_STORAGE',
+        actorRole: role,
+        message: 'Pallets moved to Zone A (Rack 4). GRN Closed.'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 800);
+  };
+
+  // Pre-calculate action states
   const recordReceiptState = getAction('RECORD_RECEIPT');
+  const startInspectionState = getAction('START_INSPECTION');
   const startSerializationState = getAction('START_SERIALIZATION');
+  const moveToStorageState = getAction('MOVE_TO_STORAGE');
 
   // RBAC Access Check
   const hasAccess = 
     role === UserRole.SYSTEM_ADMIN || 
     role === UserRole.STORES || 
     role === UserRole.SUPERVISOR || 
+    role === UserRole.QA_ENGINEER ||
     role === UserRole.MANAGEMENT;
 
   if (!hasAccess) {
@@ -124,8 +231,9 @@ export const InboundReceipt: React.FC = () => {
         <div className="flex flex-col items-end gap-1">
           <div className="flex gap-3">
              <button 
-              className="bg-brand-600 text-white px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400"
-              disabled={!recordReceiptState.enabled}
+              onClick={handleRecordReceipt}
+              className="bg-brand-600 text-white px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400 transition-colors"
+              disabled={!recordReceiptState.enabled || isSimulating}
               title={recordReceiptState.reason}
             >
               <Package size={16} />
@@ -139,7 +247,8 @@ export const InboundReceipt: React.FC = () => {
             <Database size={10} /> 
             <span>Pending: {s3Context.inboundShipmentCount}</span>
             <span className="text-slate-300">|</span>
-            <span className={`font-bold ${s3Context.inboundStatus === 'AWAITING_RECEIPT' ? 'text-blue-600' : 'text-slate-600'}`}>
+            <span className={`font-bold ${s3Context.inboundStatus === 'AWAITING_RECEIPT' ? 'text-blue-600' : 
+              s3Context.inboundStatus === 'STORED' ? 'text-green-600' : 'text-amber-600'}`}>
               {s3Context.inboundStatus}
             </span>
           </div>
@@ -149,8 +258,27 @@ export const InboundReceipt: React.FC = () => {
       <StageStateBanner stageId="S3" />
       <PreconditionsPanel stageId="S3" />
 
+      {/* Recent Local Activity Panel */}
+      {localEvents.length > 0 && (
+        <div className="bg-slate-50 border border-slate-200 rounded-md p-3 mb-6 animate-in slide-in-from-top-2">
+           <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase mb-2">
+              <History size={14} /> Recent S3 Activity (Session)
+           </div>
+           <div className="space-y-2">
+              {localEvents.slice(0, 3).map(evt => (
+                 <div key={evt.id} className="flex items-center gap-3 text-sm bg-white p-2 rounded border border-slate-100 shadow-sm">
+                    <span className="font-mono text-[10px] text-slate-400">{evt.timestamp}</span>
+                    <span className="font-bold text-slate-700 text-xs px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">{evt.actorRole}</span>
+                    <span className="text-slate-600 flex-1 truncate">{evt.message}</span>
+                    <CheckCircle2 size={14} className="text-green-500" />
+                 </div>
+              ))}
+           </div>
+        </div>
+      )}
+
       {/* Main Grid */}
-      <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
+      <div className={`flex-1 grid grid-cols-12 gap-6 min-h-0 ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>
         
         {/* Left Col: Shipment List */}
         <div className="col-span-4 bg-white rounded-lg shadow-sm border border-industrial-border flex flex-col overflow-hidden">
@@ -210,26 +338,25 @@ export const InboundReceipt: React.FC = () => {
              {/* QC Status Indicator */}
              <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-lg border border-slate-200">
                 <div className="text-right">
-                   <div className="text-[10px] text-slate-400 uppercase font-bold">Next Stage</div>
+                   <div className="text-[10px] text-slate-400 uppercase font-bold">Process State</div>
                    <div className="text-xs font-bold text-slate-700">
-                     {selectedShipment.status === 'Received' ? 'Ready for QC' : 
-                      selectedShipment.status === 'QC Hold' ? 'Quality Investigation' : 
-                      'Receipt Pending'}
+                     {s3Context.inboundStatus}
                    </div>
                 </div>
-                {selectedShipment.status === 'Received' ? <CheckCircle2 className="text-green-500" size={24} /> :
-                 selectedShipment.status === 'QC Hold' ? <AlertTriangle className="text-red-500" size={24} /> :
-                 <div className="h-6 w-6 rounded-full border-2 border-slate-300 border-t-amber-500 animate-spin" />}
+                {s3Context.inboundStatus === 'STORED' ? <CheckCircle2 className="text-green-500" size={24} /> :
+                 s3Context.inboundStatus === 'SERIALIZATION' ? <Barcode className="text-brand-500" size={24} /> :
+                 s3Context.inboundStatus === 'INSPECTION' ? <ClipboardCheck className="text-amber-500" size={24} /> :
+                 <Truck className="text-slate-400" size={24} />}
              </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             
             {/* 1. Verification Section */}
-            <section className="bg-slate-50 rounded-lg border border-slate-200 p-4">
+            <section className={`bg-slate-50 rounded-lg border border-slate-200 p-4 transition-opacity ${recordReceiptState.enabled ? 'opacity-100' : 'opacity-60'}`}>
                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2">
                  <ClipboardCheck size={16} className="text-brand-500" />
-                 Quantity Verification
+                 Quantity Verification & QC
                </h3>
                <div className="grid grid-cols-3 gap-6">
                  <div>
@@ -244,53 +371,56 @@ export const InboundReceipt: React.FC = () => {
                  </div>
                  <div className="flex flex-col items-end justify-end">
                     <button 
-                      disabled={!recordReceiptState.enabled}
-                      className="w-full bg-white border border-slate-300 text-slate-700 text-sm font-medium py-2 rounded shadow-sm hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed"
-                      title={recordReceiptState.reason}
+                      onClick={handleStartInspection}
+                      disabled={!startInspectionState.enabled}
+                      className="w-full bg-white border border-slate-300 text-slate-700 text-sm font-medium py-2 rounded shadow-sm hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      title={startInspectionState.reason}
                     >
-                      Update Count
+                      <CheckCircle2 size={14} />
+                      Verify & Release
                     </button>
-                    {!recordReceiptState.enabled && <DisabledHint reason={recordReceiptState.reason || 'Blocked'} className="mt-1" />}
+                    {!startInspectionState.enabled && <DisabledHint reason={startInspectionState.reason || 'Blocked'} className="mt-1" />}
                  </div>
                </div>
             </section>
 
             {/* 2. Serialization Panel */}
-            <section className="border border-industrial-border rounded-lg overflow-hidden">
+            <section className={`border border-industrial-border rounded-lg overflow-hidden transition-opacity ${startSerializationState.enabled ? 'opacity-100' : 'opacity-60'}`}>
                <div className="bg-slate-50 p-3 border-b border-industrial-border flex justify-between items-center">
                   <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                     <Barcode size={16} className="text-brand-500" />
-                    Serialization
+                    Serialization (Trace Handoff)
                   </h3>
                   <div className="flex flex-col items-end">
                     <button 
+                      onClick={handleSerialization}
                       disabled={!startSerializationState.enabled}
-                      className="text-xs bg-brand-600 text-white px-3 py-1.5 rounded hover:bg-brand-700 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="text-xs bg-brand-600 text-white px-3 py-1.5 rounded hover:bg-brand-700 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                       title={startSerializationState.reason}
                     >
                       <span>Generate Serials</span>
                       <ArrowRight size={12} />
                     </button>
-                    {!startSerializationState.enabled && <DisabledHint reason={startSerializationState.reason || 'Blocked'} nextActionHint="Check Status" />}
+                    {!startSerializationState.enabled && <DisabledHint reason={startSerializationState.reason || 'Blocked'} nextActionHint="Check QC" />}
                   </div>
                </div>
                
                {/* Serial List Visualization */}
                <div className="max-h-64 overflow-y-auto bg-slate-100 p-4">
-                  {selectedShipment.status === 'Pending' ? (
+                  {s3Context.inboundStatus === 'AWAITING_RECEIPT' || s3Context.inboundStatus === 'INSPECTION' ? (
                     <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
                       <div className="bg-white p-3 rounded-full mb-3 shadow-sm border border-slate-200">
                         <Barcode className="text-slate-300" size={24} />
                       </div>
-                      <h3 className="text-slate-700 font-medium text-sm mb-1">No operational data available</h3>
+                      <h3 className="text-slate-700 font-medium text-sm mb-1">Awaiting Serialization</h3>
                       <p className="text-slate-500 text-xs mb-3 max-w-xs">
-                        Serialization data will populate when receipt is verified.
+                        Serials will be generated after QC verification is complete.
                       </p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-3 gap-3">
                       {MOCK_SERIALS.map((s, idx) => (
-                        <div key={idx} className="bg-white border border-slate-200 rounded p-2 flex items-center gap-2 shadow-sm">
+                        <div key={idx} className="bg-white border border-slate-200 rounded p-2 flex items-center gap-2 shadow-sm animate-in zoom-in-95 duration-200">
                           <Barcode size={14} className="text-slate-300" />
                           <div>
                             <div className="font-mono text-xs font-bold text-slate-700">{s.sn}</div>
@@ -299,11 +429,24 @@ export const InboundReceipt: React.FC = () => {
                         </div>
                       ))}
                       <div className="col-span-3 text-center text-xs text-slate-400 mt-2">
-                        ... {selectedShipment.receivedQty - 15} more serials generated ...
+                        ... {selectedShipment.expectedQty - 15} more serials generated ...
                       </div>
                     </div>
                   )}
                </div>
+            </section>
+
+            {/* 3. Storage Action (Final Step) */}
+            <section className={`border-t border-slate-100 pt-4 flex justify-end transition-opacity ${moveToStorageState.enabled ? 'opacity-100' : 'opacity-40'}`}>
+                <button 
+                  onClick={handleMoveToStorage}
+                  disabled={!moveToStorageState.enabled}
+                  className="bg-green-600 text-white px-6 py-2 rounded-md font-bold text-sm shadow-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  title={moveToStorageState.reason}
+                >
+                  <Save size={16} />
+                  Close GRN & Move to Storage
+                </button>
             </section>
             
           </div>
