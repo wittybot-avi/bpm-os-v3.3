@@ -127,7 +127,8 @@ export const ComplianceAudit: React.FC<ComplianceAuditProps> = ({ onNavigate }) 
       setS14Context(prev => ({
         ...prev,
         circularStatus: 'RECYCLE',
-        packsSentForRecycleCount: prev.packsSentForRecycleCount + 1
+        packsSentForRecycleCount: prev.packsSentForRecycleCount + 1,
+        refurbishInProgressCount: prev.refurbishInProgressCount + 1
       }));
       const evt = emitAuditEvent({
         stageId: 'S14',
@@ -313,6 +314,19 @@ export const ComplianceAudit: React.FC<ComplianceAuditProps> = ({ onNavigate }) 
     }
   };
 
+  const handleNavToS17 = () => {
+    if (onNavigate) {
+      emitAuditEvent({
+        stageId: 'S16',
+        actionId: 'NAV_NEXT_STAGE',
+        actorRole: role,
+        message: 'Navigated to S17 (Closure / Archive) from S16 Next Step panel'
+      });
+      // S17 maps to System Logs / Documentation Archive
+      onNavigate('system_logs');
+    }
+  };
+
   const handleNavToControlTower = () => {
     if (onNavigate) {
       onNavigate('control_tower');
@@ -334,7 +348,8 @@ export const ComplianceAudit: React.FC<ComplianceAuditProps> = ({ onNavigate }) 
   const exportAuditState = getS16Action('EXPORT_AUDIT_PACK');
 
   // Next Step Readiness
-  const isReadyForNext = s14Context.circularStatus === 'COMPLETED';
+  const isS14Ready = s14Context.circularStatus === 'COMPLETED';
+  const isS16Ready = s16Context.auditStatus === 'CLOSED';
 
   // RBAC Access Check
   const hasAccess = 
@@ -496,6 +511,74 @@ export const ComplianceAudit: React.FC<ComplianceAuditProps> = ({ onNavigate }) 
              </div>
           </div>
         )}
+
+        {/* Next Step S14 Panel */}
+        <div className={`col-span-12 bg-blue-50 border border-blue-200 rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm animate-in slide-in-from-top-3 ${!onNavigate ? 'hidden' : ''}`}>
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-blue-100 rounded-full text-blue-600">
+              <RefreshCcw size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-blue-900 text-sm">Next Step: Circular Lifecycle (S14)</h3>
+              <p className="text-xs text-blue-700 mt-1 max-w-lg">
+                {isS14Ready 
+                  ? "Circular lifecycle case finalized. Proceed to Compliance / ESG (S15) for reporting." 
+                  : "Circular processing active. Complete inspection, refurbish/recycle, and close case to proceed."}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3 w-full sm:w-auto">
+             <div className="flex-1 sm:flex-none flex flex-col items-center">
+               <button 
+                 onClick={handleNavToS15} 
+                 disabled={!isS14Ready}
+                 className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-xs font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+               >
+                 <FileText size={14} /> Go to S15: Compliance / ESG
+               </button>
+               {!isS14Ready && (
+                  <span className="text-[9px] text-red-500 mt-1 font-medium">Case Not Closed</span>
+               )}
+             </div>
+          </div>
+        </div>
+
+        {/* Next Step S16 Panel */}
+        <div className={`col-span-12 bg-indigo-50 border border-indigo-200 rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm animate-in slide-in-from-top-3 ${!onNavigate ? 'hidden' : ''}`}>
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-indigo-100 rounded-full text-indigo-600">
+              <Gavel size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-indigo-900 text-sm">Next Step: Audit & Closure (S16)</h3>
+              <p className="text-xs text-indigo-700 mt-1 max-w-lg">
+                {isS16Ready 
+                  ? "Audit process closed. Proceed to System Archive (S17) for final closure." 
+                  : "Audit active. Resolve findings and close the audit to enable archival."}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3 w-full sm:w-auto">
+             <button 
+               onClick={handleNavToControlTower} 
+               className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-indigo-200 text-indigo-700 rounded-md text-xs font-bold hover:bg-indigo-100 transition-colors"
+             >
+               <Radar size={14} /> Control Tower
+             </button>
+             <div className="flex-1 sm:flex-none flex flex-col items-center">
+               <button 
+                 onClick={handleNavToS17} 
+                 disabled={!isS16Ready}
+                 className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md text-xs font-bold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+               >
+                 <Archive size={14} /> Go to S17: Closure / Archive
+               </button>
+               {!isS16Ready && (
+                  <span className="text-[9px] text-red-500 mt-1 font-medium">Audit Not Closed</span>
+               )}
+             </div>
+          </div>
+        </div>
 
         {/* Audit & Governance Operations (S16) */}
         <div className={`col-span-12 bg-white rounded-lg shadow-sm border border-industrial-border p-4 transition-opacity ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>
