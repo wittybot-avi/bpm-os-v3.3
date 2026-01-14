@@ -1,5 +1,5 @@
-import React, { useContext, useState } from 'react';
-import { UserContext, UserRole } from '../types';
+import React, { useContext, useState, useEffect } from 'react';
+import { UserContext, UserRole, NavView } from '../types';
 import { 
   ShieldAlert, 
   ShoppingCart, 
@@ -14,13 +14,16 @@ import {
   Send,
   ThumbsUp,
   Archive,
-  Plus
+  Plus,
+  History,
+  RotateCcw
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
 import { DisabledHint } from './DisabledHint';
-import { getMockS2Context } from '../stages/s2/s2Contract';
+import { getMockS2Context, S2Context } from '../stages/s2/s2Contract';
 import { getS2ActionState, S2ActionId } from '../stages/s2/s2Guards';
+import { emitAuditEvent, getAuditEvents, AuditEvent } from '../utils/auditEvents';
 
 // Mock Data Types
 interface ApprovedSKU {
@@ -70,16 +73,124 @@ export const Procurement: React.FC = () => {
   const { role } = useContext(UserContext);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier>(SUPPLIERS[0]);
 
-  // Load S2 Context (Read-Only Mock)
-  const s2Context = getMockS2Context();
+  // Local State for S2 Context Simulation
+  const [s2Context, setS2Context] = useState<S2Context>(getMockS2Context());
+  const [localEvents, setLocalEvents] = useState<AuditEvent[]>([]);
+  const [isSimulating, setIsSimulating] = useState(false);
+
+  // Load events on mount
+  useEffect(() => {
+    setLocalEvents(getAuditEvents().filter(e => e.stageId === 'S2'));
+  }, []);
 
   // Guard Logic
   const getAction = (actionId: S2ActionId) => getS2ActionState(role, s2Context, actionId);
 
+  // Action Handlers
+  const handleCreatePo = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      setS2Context(prev => ({ 
+        ...prev, 
+        activePoCount: prev.activePoCount + 1,
+        procurementStatus: 'RAISING_PO',
+        lastPoCreatedAt: now
+      }));
+      
+      const evt = emitAuditEvent({
+        stageId: 'S2',
+        actionId: 'CREATE_PO',
+        actorRole: role,
+        message: 'Created new Purchase Order draft (PO-2026-X)'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleSubmitPo = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS2Context(prev => ({ 
+        ...prev, 
+        procurementStatus: 'WAITING_APPROVAL',
+        pendingApprovalsCount: prev.pendingApprovalsCount + 1 
+      }));
+      
+      const evt = emitAuditEvent({
+        stageId: 'S2',
+        actionId: 'SUBMIT_PO_FOR_APPROVAL',
+        actorRole: role,
+        message: 'Submitted PO for commercial approval'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 800);
+  };
+
+  const handleApprovePo = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS2Context(prev => ({ 
+        ...prev, 
+        procurementStatus: 'APPROVED',
+        pendingApprovalsCount: Math.max(0, prev.pendingApprovalsCount - 1)
+      }));
+      
+      const evt = emitAuditEvent({
+        stageId: 'S2',
+        actionId: 'APPROVE_PO',
+        actorRole: role,
+        message: 'PO formally approved and signed off'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 1000);
+  };
+
+  const handleIssuePo = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      // Status remains APPROVED or could transition to ISSUED if we had that state.
+      // We will just emit the event to show progress.
+      
+      const evt = emitAuditEvent({
+        stageId: 'S2',
+        actionId: 'ISSUE_PO_TO_VENDOR',
+        actorRole: role,
+        message: `PO issued to vendor ${selectedSupplier.name}`
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 1000);
+  };
+
+  const handleCloseCycle = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS2Context(prev => ({ 
+        ...prev, 
+        procurementStatus: 'IDLE'
+      }));
+      
+      const evt = emitAuditEvent({
+        stageId: 'S2',
+        actionId: 'CLOSE_PROCUREMENT_CYCLE',
+        actorRole: role,
+        message: 'Procurement cycle closed. Ready for next order.'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 800);
+  };
+
+  // Pre-calculate action states
   const createPoState = getAction('CREATE_PO');
   const submitPoState = getAction('SUBMIT_PO_FOR_APPROVAL');
   const approvePoState = getAction('APPROVE_PO');
   const issuePoState = getAction('ISSUE_PO_TO_VENDOR');
+  const closeCycleState = getAction('CLOSE_PROCUREMENT_CYCLE');
 
   // RBAC Access Check
   const hasAccess = 
@@ -115,7 +226,8 @@ export const Procurement: React.FC = () => {
           <div className="flex gap-2">
             <button 
               className="bg-brand-600 text-white px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400"
-              disabled={!createPoState.enabled}
+              disabled={!createPoState.enabled || isSimulating}
+              onClick={handleCreatePo}
               title={createPoState.reason}
             >
               <Plus size={16} />
@@ -142,15 +254,34 @@ export const Procurement: React.FC = () => {
       <StageStateBanner stageId="S2" />
       <PreconditionsPanel stageId="S2" />
 
+      {/* Recent Local Activity Panel */}
+      {localEvents.length > 0 && (
+        <div className="bg-slate-50 border border-slate-200 rounded-md p-3 mb-6 animate-in slide-in-from-top-2">
+           <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase mb-2">
+              <History size={14} /> Recent S2 Activity (Session)
+           </div>
+           <div className="space-y-2">
+              {localEvents.slice(0, 3).map(evt => (
+                 <div key={evt.id} className="flex items-center gap-3 text-sm bg-white p-2 rounded border border-slate-100 shadow-sm">
+                    <span className="font-mono text-[10px] text-slate-400">{evt.timestamp}</span>
+                    <span className="font-bold text-slate-700 text-xs px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">{evt.actorRole}</span>
+                    <span className="text-slate-600 flex-1 truncate">{evt.message}</span>
+                    <CheckCircle2 size={14} className="text-green-500" />
+                 </div>
+              ))}
+           </div>
+        </div>
+      )}
+
       {/* Procurement Lifecycle Toolbar */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-industrial-border flex flex-col md:flex-row items-center gap-4 justify-between">
+      <div className={`bg-white p-4 rounded-lg shadow-sm border border-industrial-border flex flex-col md:flex-row items-center gap-4 justify-between transition-opacity ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>
          <div className="flex items-center gap-3 w-full md:w-auto">
             <div className="p-2 bg-blue-50 text-blue-700 rounded border border-blue-100">
                <FileText size={20} />
             </div>
             <div>
                <h3 className="font-bold text-slate-800 text-sm">Active Order Cycle</h3>
-               <p className="text-xs text-slate-500">Status: {s2Context.procurementStatus}</p>
+               <p className="text-xs text-slate-500">Status: <span className="font-bold">{s2Context.procurementStatus}</span></p>
             </div>
          </div>
 
@@ -159,6 +290,7 @@ export const Procurement: React.FC = () => {
             <div className="flex flex-col items-center">
               <button 
                 disabled={!submitPoState.enabled}
+                onClick={handleSubmitPo}
                 title={submitPoState.reason}
                 className="flex items-center gap-2 px-3 py-2 bg-slate-100 text-slate-700 border border-slate-200 rounded hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 text-xs font-bold transition-colors"
               >
@@ -172,6 +304,7 @@ export const Procurement: React.FC = () => {
             <div className="flex flex-col items-center">
               <button 
                 disabled={!approvePoState.enabled}
+                onClick={handleApprovePo}
                 title={approvePoState.reason}
                 className="flex items-center gap-2 px-3 py-2 bg-purple-50 text-purple-700 border border-purple-100 rounded hover:bg-purple-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 text-xs font-bold transition-colors"
               >
@@ -185,17 +318,33 @@ export const Procurement: React.FC = () => {
             <div className="flex flex-col items-center">
               <button 
                 disabled={!issuePoState.enabled}
+                onClick={handleIssuePo}
                 title={issuePoState.reason}
                 className="flex items-center gap-2 px-3 py-2 bg-green-50 text-green-700 border border-green-100 rounded hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 text-xs font-bold transition-colors"
               >
                 <CreditCard size={14} /> Issue PO
               </button>
             </div>
+
+            {/* Close Cycle (Conditionally visible when Approved) */}
+            {closeCycleState.enabled && (
+                <>
+                    <div className="w-4 h-px bg-slate-300"></div>
+                    <div className="flex flex-col items-center">
+                        <button 
+                            onClick={handleCloseCycle}
+                            className="flex items-center gap-2 px-3 py-2 bg-slate-800 text-slate-200 border border-slate-700 rounded hover:bg-slate-700 text-xs font-bold transition-colors"
+                        >
+                            <RotateCcw size={14} /> Reset
+                        </button>
+                    </div>
+                </>
+            )}
          </div>
       </div>
 
       {/* Main Grid */}
-      <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
+      <div className={`flex-1 grid grid-cols-12 gap-6 min-h-0 ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>
         
         {/* Left Col: Approved SKU Reference */}
         <div className="col-span-3 bg-white rounded-lg shadow-sm border border-industrial-border flex flex-col overflow-hidden">
