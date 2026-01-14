@@ -83,3 +83,4 @@
 | **V33-S12-BP-01** | S12 Stage Contract Stub | 2026-01-16 14:15 (IST) | Added S12 warranty & lifecycle context contract + mock data scaffold; S12 screen reads it (read-only). | No |
 | **V33-S12-FP-02** | S12 State Guard by Role | 2026-01-16 14:30 (IST) | Added S12 role/status UI guards for warranty & lifecycle actions; no workflow change. | No |
 | **V33-S12-PP-03** | S12 Simulated Actions | 2026-01-16 14:45 (IST) | S12 actions simulate warranty & lifecycle transitions; audit events emitted (frontend-only). | Yes |
+| **V33-S12-PP-04** | S12 Workflow Navigation Wiring | 2026-01-16 15:00 (IST) | Added S12 Next Step navigation panel guiding flow to S13 Service / Returns (mapped to Recycling). | Yes |
