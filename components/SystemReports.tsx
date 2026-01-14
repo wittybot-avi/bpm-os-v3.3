@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { UserContext, UserRole } from '../types';
 import { 
   BarChart2, 
@@ -16,11 +16,14 @@ import {
   Search,
   CheckSquare,
   Send,
-  Lock
+  Lock,
+  History,
+  CheckCircle2
 } from 'lucide-react';
-import { getMockS15Context } from '../stages/s15/s15Contract';
+import { getMockS15Context, S15Context } from '../stages/s15/s15Contract';
 import { getS15ActionState, S15ActionId } from '../stages/s15/s15Guards';
 import { DisabledHint } from './DisabledHint';
+import { emitAuditEvent, getAuditEvents, AuditEvent } from '../utils/auditEvents';
 
 interface ReportTile {
   id: string;
@@ -144,11 +147,115 @@ export const SystemReports: React.FC = () => {
   const { role } = useContext(UserContext);
   const [selectedReport, setSelectedReport] = useState<ReportTile | null>(null);
   
-  // S15 Context (Read-Only Mock for now, used for guards)
-  const [s15Context] = useState(getMockS15Context());
+  // S15 Context State
+  const [s15Context, setS15Context] = useState<S15Context>(getMockS15Context());
+  const [localEvents, setLocalEvents] = useState<AuditEvent[]>([]);
+  const [isSimulating, setIsSimulating] = useState(false);
+
+  // Load events on mount
+  useEffect(() => {
+    setLocalEvents(getAuditEvents().filter(e => e.stageId === 'S15'));
+  }, []);
 
   // Action Helper
   const getAction = (actionId: S15ActionId) => getS15ActionState(role, s15Context, actionId);
+
+  // --- Handlers for Simulated Actions ---
+
+  const handleGenerateSnapshot = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      setS15Context(prev => {
+        // Randomly adjust ESG metrics slightly for liveliness
+        const newScore = Math.min(100, Math.max(0, prev.esgScorePreview + (Math.random() > 0.5 ? 1 : -1)));
+        const newCarbon = Math.max(0, prev.carbonFootprintKgCo2e + (Math.random() > 0.5 ? 5 : -5));
+        
+        return {
+          ...prev,
+          complianceSnapshotCount: prev.complianceSnapshotCount + 1,
+          lastComplianceRunAt: now,
+          esgScorePreview: newScore,
+          carbonFootprintKgCo2e: newCarbon,
+          // If we have missing evidence, we need it. Otherwise we are ready.
+          complianceStatus: prev.missingEvidenceCount > 0 ? 'NEEDS_EVIDENCE' : 'READY'
+        };
+      });
+
+      const evt = emitAuditEvent({
+        stageId: 'S15',
+        actionId: 'GENERATE_SNAPSHOT',
+        actorRole: role,
+        message: 'Generated new Compliance & ESG Snapshot'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 800);
+  };
+
+  const handleRequestEvidence = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      // Idempotent state change, mostly for audit log
+      setS15Context(prev => ({
+        ...prev,
+        complianceStatus: 'NEEDS_EVIDENCE'
+      }));
+
+      const evt = emitAuditEvent({
+        stageId: 'S15',
+        actionId: 'REQUEST_MISSING_EVIDENCE',
+        actorRole: role,
+        message: `Requested ${s15Context.missingEvidenceCount} pending evidence items`
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleMarkCollected = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS15Context(prev => {
+        const nextMissing = Math.max(0, prev.missingEvidenceCount - 1);
+        return {
+          ...prev,
+          missingEvidenceCount: nextMissing,
+          complianceStatus: nextMissing === 0 ? 'READY' : 'NEEDS_EVIDENCE'
+        };
+      });
+
+      const evt = emitAuditEvent({
+        stageId: 'S15',
+        actionId: 'MARK_EVIDENCE_COLLECTED',
+        actorRole: role,
+        message: 'Evidence item collected and verified'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleSubmitReport = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS15Context(prev => ({
+        ...prev,
+        complianceStatus: 'SUBMITTED'
+      }));
+
+      const evt = emitAuditEvent({
+        stageId: 'S15',
+        actionId: 'SUBMIT_COMPLIANCE_REPORT',
+        actorRole: role,
+        message: 'Compliance report submitted to registry'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 1000);
+  };
+
+  // --- End Handlers ---
 
   const generateState = getAction('GENERATE_SNAPSHOT');
   const requestEvidenceState = getAction('REQUEST_MISSING_EVIDENCE');
@@ -196,7 +303,7 @@ export const SystemReports: React.FC = () => {
       </div>
 
       {/* Compliance Operations Toolbar */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-industrial-border flex flex-wrap items-center gap-4 transition-all">
+      <div className={`bg-white p-4 rounded-lg shadow-sm border border-industrial-border flex flex-wrap items-center gap-4 transition-opacity ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>
          <div className="flex items-center gap-3 mr-auto">
             <div className="p-2 bg-slate-100 text-slate-600 rounded border border-slate-200">
                <ShieldCheck size={20} />
@@ -213,6 +320,7 @@ export const SystemReports: React.FC = () => {
                 className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-bold transition-colors"
                 disabled={!generateState.enabled}
                 title={generateState.reason}
+                onClick={handleGenerateSnapshot}
             >
                 <RefreshCw size={14} /> Generate Snapshot
             </button>
@@ -224,6 +332,7 @@ export const SystemReports: React.FC = () => {
                 className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-bold transition-colors"
                 disabled={!requestEvidenceState.enabled}
                 title={requestEvidenceState.reason}
+                onClick={handleRequestEvidence}
             >
                 <Search size={14} /> Request Evidence
             </button>
@@ -235,6 +344,7 @@ export const SystemReports: React.FC = () => {
                 className="flex items-center gap-2 px-3 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded hover:bg-purple-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:border-slate-300 disabled:text-slate-400 text-xs font-bold transition-colors"
                 disabled={!markCollectedState.enabled}
                 title={markCollectedState.reason}
+                onClick={handleMarkCollected}
             >
                 <CheckSquare size={14} /> Mark Collected
             </button>
@@ -248,6 +358,7 @@ export const SystemReports: React.FC = () => {
                 className="flex items-center gap-2 px-4 py-2 bg-green-600 border border-green-700 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:border-slate-300 disabled:text-slate-400 text-xs font-bold transition-colors shadow-sm"
                 disabled={!submitReportState.enabled}
                 title={submitReportState.reason}
+                onClick={handleSubmitReport}
             >
                 <Send size={14} /> Submit Report
             </button>
@@ -259,6 +370,25 @@ export const SystemReports: React.FC = () => {
          {!generateState.enabled && generateState.reason && <DisabledHint reason={generateState.reason} />}
          {!submitReportState.enabled && submitReportState.reason && <DisabledHint reason={submitReportState.reason} />}
       </div>
+
+      {/* Recent Activity Panel */}
+      {localEvents.length > 0 && (
+        <div className="bg-slate-50 border border-slate-200 rounded-md p-3 animate-in slide-in-from-top-2">
+           <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase mb-2">
+              <History size={14} /> Recent S15 Compliance Activity (Session)
+           </div>
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+              {localEvents.slice(0, 5).map(evt => (
+                 <div key={evt.id} className="flex items-center gap-3 text-sm bg-white p-2 rounded border border-slate-100 shadow-sm">
+                    <span className="font-mono text-[10px] text-slate-400 shrink-0">{evt.timestamp.split(' ')[0]}</span>
+                    <span className="font-bold text-slate-700 text-xs px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200 shrink-0">{evt.actorRole}</span>
+                    <span className="text-slate-600 flex-1 truncate text-xs" title={evt.message}>{evt.message}</span>
+                    <CheckCircle2 size={12} className="text-green-500 shrink-0" />
+                 </div>
+              ))}
+           </div>
+        </div>
+      )}
 
       {/* Report Tiles Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 overflow-y-auto">
