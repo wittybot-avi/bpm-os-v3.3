@@ -9,10 +9,12 @@ import {
   CreditCard,
   Building2,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  Database
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
+import { getMockS2Context } from '../stages/s2/s2Contract';
 
 // Mock Data Types
 interface ApprovedSKU {
@@ -62,6 +64,9 @@ export const Procurement: React.FC = () => {
   const { role } = useContext(UserContext);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier>(SUPPLIERS[0]);
 
+  // Load S2 Context (Read-Only)
+  const s2Context = getMockS2Context();
+
   // RBAC Access Check
   const hasAccess = 
     role === UserRole.SYSTEM_ADMIN || 
@@ -92,23 +97,33 @@ export const Procurement: React.FC = () => {
            </h1>
            <p className="text-slate-500 text-sm mt-1">Manage supplier qualifications, commercial terms, and procurement orders.</p>
         </div>
-        <div className="flex gap-3">
-          <button 
-            className="bg-white border border-slate-300 text-slate-400 px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 cursor-not-allowed"
-            disabled
-            title="Demo Mode: Backend not connected"
-          >
-            <FileText size={16} />
-            <span>Create RFQ</span>
-          </button>
-          <button 
-            className="bg-brand-600 text-white px-4 py-2 rounded-md font-medium text-sm opacity-50 cursor-not-allowed flex items-center gap-2"
-            disabled
-            title="Demo Mode: Backend not connected"
-          >
-            <CreditCard size={16} />
-            <span>Release PO</span>
-          </button>
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex gap-3">
+            <button 
+              className="bg-white border border-slate-300 text-slate-400 px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 cursor-not-allowed"
+              disabled
+              title="Demo Mode: Backend not connected"
+            >
+              <FileText size={16} />
+              <span>Create RFQ</span>
+            </button>
+            <button 
+              className="bg-brand-600 text-white px-4 py-2 rounded-md font-medium text-sm opacity-50 cursor-not-allowed flex items-center gap-2"
+              disabled
+              title="Demo Mode: Backend not connected"
+            >
+              <CreditCard size={16} />
+              <span>Release PO</span>
+            </button>
+          </div>
+          <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2 mt-1">
+            <Database size={10} /> 
+            <span>Active POs: {s2Context.activePoCount}</span>
+            <span className="text-slate-300">|</span>
+            <span>Pending: {s2Context.pendingApprovalsCount}</span>
+            <span className="text-slate-300">|</span>
+            <span className="font-bold text-blue-600">{s2Context.procurementStatus}</span>
+          </div>
         </div>
       </div>
 
@@ -150,7 +165,7 @@ export const Procurement: React.FC = () => {
                <Truck size={16} />
                Supplier Master
              </h3>
-             <span className="text-xs text-slate-400">Qualified Vendors</span>
+             <span className="text-xs text-slate-400">Qualified Vendors ({s2Context.vendorCatalogCount})</span>
           </div>
           <div className="overflow-y-auto flex-1 p-0">
             <table className="w-full text-sm text-left">
