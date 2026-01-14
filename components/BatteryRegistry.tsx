@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { UserContext, UserRole } from '../types';
 import { 
   ShieldAlert, 
@@ -26,13 +26,15 @@ import {
   ThumbsUp,
   ThumbsDown,
   LogOut,
-  Stethoscope
+  Stethoscope,
+  CheckCircle2
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
 import { DisabledHint } from './DisabledHint';
 import { getMockS9Context, S9Context } from '../stages/s9/s9Contract';
 import { getS9ActionState, S9ActionId } from '../stages/s9/s9Guards';
+import { emitAuditEvent, getAuditEvents, AuditEvent } from '../utils/auditEvents';
 
 // Mock Data Types
 interface RegistryPack {
@@ -163,12 +165,114 @@ export const BatteryRegistry: React.FC = () => {
   const { role } = useContext(UserContext);
   const [selectedPack, setSelectedPack] = useState<RegistryPack>(REGISTRY_DATA[0]);
 
-  // S9 Context (Read-Only Mock)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [s9Context] = useState<S9Context>(getMockS9Context());
+  // S9 Context State
+  const [s9Context, setS9Context] = useState<S9Context>(getMockS9Context());
+  const [localEvents, setLocalEvents] = useState<AuditEvent[]>([]);
+  const [isSimulating, setIsSimulating] = useState(false);
+
+  // Load events on mount
+  useEffect(() => {
+    setLocalEvents(getAuditEvents().filter(e => e.stageId === 'S9'));
+  }, []);
 
   // Helper for Guards
   const getAction = (actionId: S9ActionId) => getS9ActionState(role, s9Context, actionId);
+
+  // Action Handlers
+  const handleStartQa = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setS9Context(prev => ({
+        ...prev,
+        finalQaStatus: 'CHECKING',
+        packsUnderFinalQaCount: prev.packsUnderFinalQaCount + 1,
+        packsQueuedForFinalQaCount: Math.max(0, prev.packsQueuedForFinalQaCount - 1)
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S9',
+        actionId: 'START_FINAL_QA',
+        actorRole: role,
+        message: 'Final QA session started for Pack'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleCompleteChecks = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      // Just emit event, keep status CHECKING to allow Approve/Reject decision
+      const evt = emitAuditEvent({
+        stageId: 'S9',
+        actionId: 'COMPLETE_FINAL_QA',
+        actorRole: role,
+        message: 'Final QA inspection checklist completed'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
+
+  const handleApprove = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      setS9Context(prev => ({
+        ...prev,
+        finalQaStatus: 'APPROVED',
+        packsFinalApprovedCount: prev.packsFinalApprovedCount + 1,
+        packsUnderFinalQaCount: Math.max(0, prev.packsUnderFinalQaCount - 1),
+        lastFinalQaAt: now
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S9',
+        actionId: 'MARK_FINAL_APPROVE',
+        actorRole: role,
+        message: 'Pack approved in Final QA. Digital Twin verified.'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 800);
+  };
+
+  const handleReject = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      const now = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      setS9Context(prev => ({
+        ...prev,
+        finalQaStatus: 'REJECTED',
+        packsFinalRejectedCount: prev.packsFinalRejectedCount + 1,
+        packsUnderFinalQaCount: Math.max(0, prev.packsUnderFinalQaCount - 1),
+        lastFinalQaAt: now
+      }));
+      const evt = emitAuditEvent({
+        stageId: 'S9',
+        actionId: 'MARK_FINAL_REJECT',
+        actorRole: role,
+        message: 'Pack rejected in Final QA.'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 800);
+  };
+
+  const handleRelease = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      // Per instructions, keep status as APPROVED but emit event.
+      // In a real app, this might navigate or reset.
+      const evt = emitAuditEvent({
+        stageId: 'S9',
+        actionId: 'RELEASE_TO_PACKING',
+        actorRole: role,
+        message: 'Pack released to Packing (S12) queue'
+      });
+      setLocalEvents(prev => [evt, ...prev]);
+      setIsSimulating(false);
+    }, 600);
+  };
 
   // RBAC Access Check
   const hasAccess = 
@@ -181,7 +285,7 @@ export const BatteryRegistry: React.FC = () => {
 
   // Guard States
   const startQaState = getAction('START_FINAL_QA');
-  const completeQaState = getAction('COMPLETE_FINAL_QA'); // Assuming checking phase involves marking items
+  const completeQaState = getAction('COMPLETE_FINAL_QA'); 
   const approveState = getAction('MARK_FINAL_APPROVE');
   const rejectState = getAction('MARK_FINAL_REJECT');
   const releaseState = getAction('RELEASE_TO_PACKING');
@@ -229,7 +333,8 @@ export const BatteryRegistry: React.FC = () => {
              <ClipboardCheck size={10} />
              <span>Final QA Queue: {s9Context.packsQueuedForFinalQaCount}</span>
              <span className="text-slate-300">|</span>
-             <span className={`font-bold ${s9Context.finalQaStatus === 'APPROVED' ? 'text-green-600' : 'text-slate-600'}`}>
+             <span className={`font-bold ${s9Context.finalQaStatus === 'APPROVED' ? 'text-green-600' : 
+               s9Context.finalQaStatus === 'CHECKING' ? 'text-blue-600' : 'text-slate-600'}`}>
                 {s9Context.finalQaStatus}
              </span>
           </div>
@@ -239,8 +344,27 @@ export const BatteryRegistry: React.FC = () => {
       <StageStateBanner stageId="S9" />
       <PreconditionsPanel stageId="S9" />
 
+      {/* Recent Local Activity Panel */}
+      {localEvents.length > 0 && (
+        <div className="bg-slate-50 border border-slate-200 rounded-md p-3 mb-6 animate-in slide-in-from-top-2">
+           <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase mb-2">
+              <History size={14} /> Recent S9 Activity (Session)
+           </div>
+           <div className="space-y-2">
+              {localEvents.slice(0, 3).map(evt => (
+                 <div key={evt.id} className="flex items-center gap-3 text-sm bg-white p-2 rounded border border-slate-100 shadow-sm">
+                    <span className="font-mono text-[10px] text-slate-400">{evt.timestamp}</span>
+                    <span className="font-bold text-slate-700 text-xs px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">{evt.actorRole}</span>
+                    <span className="text-slate-600 flex-1 truncate">{evt.message}</span>
+                    <CheckCircle2 size={14} className="text-green-500" />
+                 </div>
+              ))}
+           </div>
+        </div>
+      )}
+
       {/* Main Grid */}
-      <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
+      <div className={`flex-1 grid grid-cols-12 gap-6 min-h-0 ${isSimulating ? 'opacity-70 pointer-events-none' : ''}`}>
         
         {/* Left Col: Registry List */}
         <div className="col-span-5 bg-white rounded-lg shadow-sm border border-industrial-border flex flex-col overflow-hidden">
@@ -342,6 +466,7 @@ export const BatteryRegistry: React.FC = () => {
                <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
                      <button 
+                       onClick={handleStartQa}
                        disabled={!startQaState.enabled}
                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-slate-200 rounded-md text-sm font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
                        title={startQaState.reason}
@@ -352,6 +477,7 @@ export const BatteryRegistry: React.FC = () => {
                   </div>
                   <div>
                      <button 
+                       onClick={handleCompleteChecks}
                        disabled={!completeQaState.enabled}
                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-slate-200 rounded-md text-sm font-bold text-slate-700 hover:bg-green-50 hover:text-green-700 hover:border-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
                        title={completeQaState.reason}
@@ -365,6 +491,7 @@ export const BatteryRegistry: React.FC = () => {
                <div className="grid grid-cols-3 gap-3 pt-2 border-t border-slate-200">
                   <div className="flex flex-col">
                      <button 
+                       onClick={handleApprove}
                        disabled={!approveState.enabled}
                        className="w-full flex flex-col items-center justify-center p-2 bg-green-100 text-green-800 rounded hover:bg-green-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 transition-colors"
                        title={approveState.reason}
@@ -375,6 +502,7 @@ export const BatteryRegistry: React.FC = () => {
                   </div>
                   <div className="flex flex-col">
                      <button 
+                       onClick={handleReject}
                        disabled={!rejectState.enabled}
                        className="w-full flex flex-col items-center justify-center p-2 bg-red-100 text-red-800 rounded hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 transition-colors"
                        title={rejectState.reason}
@@ -385,6 +513,7 @@ export const BatteryRegistry: React.FC = () => {
                   </div>
                   <div className="flex flex-col">
                      <button 
+                       onClick={handleRelease}
                        disabled={!releaseState.enabled}
                        className="w-full flex flex-col items-center justify-center p-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 transition-colors"
                        title={releaseState.reason}
