@@ -16,11 +16,15 @@ import {
   Signal,
   ShieldCheck,
   User,
-  Clock
+  Clock,
+  XCircle,
+  Archive
 } from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
+import { DisabledHint } from './DisabledHint';
 import { getMockS12Context } from '../stages/s12/s12Contract';
+import { getS12ActionState, S12ActionId } from '../stages/s12/s12Guards';
 
 // Mock Data Types
 interface DeployedPack {
@@ -99,6 +103,15 @@ export const ServiceWarranty: React.FC = () => {
   // Read-Only S12 Context
   const s12Context = getMockS12Context();
 
+  // Helper for Guards
+  const getAction = (actionId: S12ActionId) => getS12ActionState(role, s12Context, actionId);
+
+  // Guard States
+  const initiateClaimState = getAction('INITIATE_WARRANTY_CLAIM');
+  const rejectClaimState = getAction('REJECT_WARRANTY_CLAIM');
+  const approveClaimState = getAction('APPROVE_WARRANTY_CLAIM');
+  const closeWarrantyState = getAction('CLOSE_WARRANTY');
+
   // RBAC Access Check
   const hasAccess = 
     role === UserRole.SYSTEM_ADMIN || 
@@ -152,7 +165,9 @@ export const ServiceWarranty: React.FC = () => {
             <span className="text-slate-300">|</span>
             <span>Claims: {s12Context.activeClaimsCount}</span>
             <span className="text-slate-300">|</span>
-            <span className="font-bold text-blue-600">S12: {s12Context.lifecycleStatus}</span>
+            <span className={`font-bold ${s12Context.lifecycleStatus === 'ACTIVE' ? 'text-green-600' : s12Context.lifecycleStatus === 'CLAIM' ? 'text-amber-600' : 'text-slate-600'}`}>
+              S12: {s12Context.lifecycleStatus}
+            </span>
           </div>
         </div>
       </div>
@@ -312,33 +327,60 @@ export const ServiceWarranty: React.FC = () => {
                     Service Actions
                 </h3>
                 <div className="flex gap-4">
-                    <button 
-                        disabled 
-                        className="flex-1 bg-white border border-slate-300 text-slate-500 py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 opacity-60 cursor-not-allowed"
-                        title="Demo Mode: Backend locked"
-                    >
-                        <FileWarning size={16} />
-                        Raise Incident
-                    </button>
-                    <button 
-                        disabled 
-                        className="flex-1 bg-white border border-slate-300 text-slate-500 py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 opacity-60 cursor-not-allowed"
-                        title="Demo Mode: Backend locked"
-                    >
-                        <AlertTriangle size={16} />
-                        Void Warranty
-                    </button>
-                    <button 
-                        disabled 
-                        className="flex-1 bg-brand-600 text-white py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 opacity-50 cursor-not-allowed shadow-sm"
-                        title="Demo Mode: Backend locked"
-                    >
-                        <CheckCircle2 size={16} />
-                        Close Ticket
-                    </button>
+                    {/* Initiate Claim */}
+                    <div className="flex-1 flex flex-col">
+                        <button 
+                            disabled={!initiateClaimState.enabled}
+                            className="w-full bg-white border border-slate-300 text-slate-700 py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                            title={initiateClaimState.reason}
+                        >
+                            <FileWarning size={16} />
+                            Raise Incident
+                        </button>
+                        {!initiateClaimState.enabled && <DisabledHint reason={initiateClaimState.reason || 'Blocked'} className="mx-auto" />}
+                    </div>
+
+                    {/* Void/Reject */}
+                    <div className="flex-1 flex flex-col">
+                        <button 
+                            disabled={!rejectClaimState.enabled}
+                            className="w-full bg-white border border-slate-300 text-slate-700 py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                            title={rejectClaimState.reason}
+                        >
+                            <XCircle size={16} />
+                            Void Warranty
+                        </button>
+                        {!rejectClaimState.enabled && <DisabledHint reason={rejectClaimState.reason || 'Blocked'} className="mx-auto" />}
+                    </div>
+
+                    {/* Approve/Close Ticket */}
+                    <div className="flex-1 flex flex-col">
+                        <button 
+                            disabled={!approveClaimState.enabled}
+                            className="w-full bg-brand-600 text-white py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 shadow-sm hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                            title={approveClaimState.reason}
+                        >
+                            <CheckCircle2 size={16} />
+                            Close Ticket
+                        </button>
+                        {!approveClaimState.enabled && <DisabledHint reason={approveClaimState.reason || 'Blocked'} className="mx-auto" />}
+                    </div>
+
+                    {/* Close Warranty (Lifecycle) */}
+                    <div className="flex-1 flex flex-col">
+                        <button 
+                            disabled={!closeWarrantyState.enabled}
+                            className="w-full bg-slate-800 text-white py-3 rounded-md font-medium text-sm flex items-center justify-center gap-2 shadow-sm hover:bg-slate-900 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                            title={closeWarrantyState.reason}
+                        >
+                            <Archive size={16} />
+                            Close Warranty
+                        </button>
+                        {!closeWarrantyState.enabled && <DisabledHint reason={closeWarrantyState.reason || 'Blocked'} className="mx-auto" />}
+                    </div>
                 </div>
                  <p className="text-center text-xs text-slate-400 mt-3">
-                    Service actions are disabled in Frontend-Only Demo Mode.
+                    Actions update local lifecycle state in demo mode.
                 </p>
             </section>
             

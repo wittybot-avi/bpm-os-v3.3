@@ -76,78 +76,9 @@
 | **EXT-HO-093** | Handover Patch | Integration Hooks Map | **STABLE** | Defined UI plug points and integration constraints for backend teams. | 2026-01-15 21:00 (IST) |
 | **EXT-HO-094** | Handover Patch | Consistency & Validation Pass | **STABLE** | Aligned Glossary and Contract enums with Frontend Implementation. | 2026-01-15 22:00 (IST) |
 | **EXT-HO-095** | Handover Patch | Final Design Freeze & Handover Declaration | **STABLE** | Formally declared Design Freeze and locked all handover artifacts. | 2026-01-15 22:30 (IST) |
-
-## V3.3 Frontend Patch Log
-
-<!--
-TEMPLATE:
-| Patch ID | Title | Date (IST) | Summary | Behavior Change |
-|:---|:---|:---|:---|:---|
-| **ID** | Title | YYYY-MM-DD HH:MM (IST) | Description | Yes/No |
--->
-
-| Patch ID | Title | Date (IST) | Summary | Behavior Change |
-|:---|:---|:---|:---|:---|
-| **V33-CORE-BP-00** | V3.3 Baseline Lock | 2026-01-15 22:45 (IST) | V3.3 baseline lock, HUD branch tag, do-not-break manifest. | No |
-| **V33-CORE-BP-01** | Single Source of Truth | 2026-01-15 23:00 (IST) | Consolidated version constants to appConfig.ts. HUD reads dynamic branch ID. | No |
-| **V33-CORE-HO-02** | Patchlog Discipline | 2026-01-15 23:15 (IST) | Documentation-only; no runtime or UI behavior change. | No |
-| **V33-CORE-FP-04** | Build/Patch Number Discipline | 2026-01-15 23:30 (IST) | Unified footer and HUD patch versions via metadata SSoT. | No |
-| **V33-CORE-FP-05** | Documentation Health Sync | 2026-01-15 23:45 (IST) | Documentation now renders authoritative PATCHLOG.md and registers V3.3 manifest. | No |
-| **V33-CORE-FP-06** | Fix docs markdown imports | 2026-01-16 00:00 (IST) | Removed @ alias for markdown; enforced relative raw imports for stability. | No |
-| **V33-DOC-FP-07** | Docs Standardization | 2026-01-16 00:15 (IST) | Consolidated governance docs to /docs/governance. Fixed build imports. | No |
-| **V33-DOC-FP-08** | Documentation Loader Stabilization | 2026-01-16 00:30 (IST) | Switched to fetch() for docs to fix build errors. Reduced artifacts.ts size. | No |
-| **V33-DOC-HO-09** | Governance Docs Single Source | 2026-01-16 00:45 (IST) | Removed root duplicates; /docs/governance is single source. | No |
-| **V33-CORE-FP-10** | Error Boundary UX Guard | 2026-01-16 01:00 (IST) | Added Error Boundary UX guard to prevent white screen and enable recovery. | Yes |
-| **V33-OPS-FP-11** | Runbook Gate Semantics | 2026-01-16 01:15 (IST) | Standardized Runbook gating UX (BLOCKED / reason / action) for missing context. | Yes |
-| **V33-OPS-FP-12** | Stage Operational State Banner | 2026-01-16 01:30 (IST) | Added read-only Stage Operational State banner across S0–S17. | No |
-| **V33-OPS-FP-13** | Stage Preconditions Panel | 2026-01-16 01:45 (IST) | Added read-only Preconditions panel across S0–S17 for plant-like operational clarity. | No |
-| **V33-OPS-FP-14** | Disabled Action Explanations | 2026-01-16 02:00 (IST) | Added consistent 'DisabledHint' visual indicators for blocked/demo actions. | No |
-| **V33-OPS-FP-15** | Control Tower Deep Link Context | 2026-01-16 02:15 (IST) | Added minimal active context handoff (runbook → stage) via sessionStorage; frontend-only. | No |
-| **V33-S0-BP-01** | S0 Stage Contract Stub | 2026-01-16 02:30 (IST) | Added S0 context contract + mock data scaffold; S0 screen reads it (read-only). | No |
-| **V33-S0-FP-02** | S0 State Guard by Role | 2026-01-16 02:45 (IST) | Added S0 role/state UI guards (enable/disable) with clear blocked reasons; no workflow change. | No |
-| **V33-S0-PP-03** | S0 Simulated Actions | 2026-01-16 03:00 (IST) | S0 actions now simulate state changes and emit audit events (frontend-only). | Yes |
-| **V33-S0-PP-04** | S0 Workflow Navigation Wiring | 2026-01-16 03:15 (IST) | Added S0 Next Step navigation panel guiding flow to S1/Control Tower. | Yes |
-| **V33-S1-BP-01** | S1 Stage Contract Stub | 2026-01-16 03:30 (IST) | Added S1 context contract + mock data scaffold; S1 screen reads it (read-only). | No |
-| **V33-S1-FP-02** | S1 State Guard by Role | 2026-01-16 03:45 (IST) | Added S1 role/state UI guards (enable/disable) with clear blocked reasons; no workflow change. | No |
-| **V33-S1-PP-03** | S1 Simulated Actions | 2026-01-16 04:00 (IST) | S1 actions now simulate blueprint lifecycle + SKU changes; audit events emitted (frontend-only). | Yes |
-| **V33-S1-PP-04** | S1 Workflow Navigation Wiring | 2026-01-16 04:15 (IST) | Added S1 Next Step navigation panel guiding flow to S2 Procurement. | Yes |
-| **V33-S2-BP-01** | S2 Stage Contract Stub | 2026-01-16 04:30 (IST) | Added S2 procurement context contract + mock data scaffold; S2 screen reads it (read-only). | No |
-| **V33-S2-FP-02** | S2 State Guard by Role | 2026-01-16 04:45 (IST) | Added S2 role/status UI guards with blocked reasons; no workflow change. | No |
-| **V33-S2-PP-03** | S2 Simulated Actions | 2026-01-16 05:00 (IST) | S2 actions simulate procurement lifecycle + counters; audit events emitted (frontend-only). | Yes |
-| **V33-S2-PP-04** | S2 Workflow Navigation Wiring | 2026-01-16 05:15 (IST) | Added S2 Next Step navigation panel guiding flow to S3 Inbound Receipt. | Yes |
-| **V33-S3-FP-02** | S3 State Guard by Role | 2026-01-16 05:30 (IST) | Added S3 contract stub and role/status UI guards with blocked reasons. | No |
-| **V33-S3-PP-03** | S3 Simulated Actions | 2026-01-16 05:45 (IST) | Added simulated S3 receipt, inspection, and serialization workflow with audit events. | Yes |
-| **V33-S3-PP-04** | S3 Workflow Navigation Wiring | 2026-01-16 06:00 (IST) | Added S3 Next Step navigation panel guiding flow to S4 Batch Planning. | Yes |
-| **V33-S4-BP-01** | S4 Stage Contract Stub | 2026-01-16 06:15 (IST) | Added S4 batch planning context contract + mock data scaffold; S4 screen reads it (read-only). | No |
-| **V33-S4-FP-02** | S4 State Guard by Role | 2026-01-16 06:30 (IST) | Added S4 role/status UI guards with blocked reasons; no workflow change. | No |
-| **V33-S4-PP-03** | S4 Simulated Actions | 2026-01-16 06:45 (IST) | S4 actions simulate batch planning lifecycle; audit events emitted (frontend-only). | Yes |
-| **V33-S4-PP-04** | S4 Workflow Navigation Wiring | 2026-01-16 07:00 (IST) | Added S4 Next Step navigation panel guiding flow to S5 Module Assembly. | Yes |
-| **V33-S5-BP-01** | S5 Stage Contract Stub | 2026-01-16 07:15 (IST) | Added S5 module assembly context contract + mock data scaffold; S5 screen reads it (read-only). | No |
-| **V33-S5-FP-02** | S5 State Guard by Role | 2026-01-16 07:30 (IST) | Added S5 role/status UI guards with blocked reasons; no workflow change. | No |
-| **V33-S5-PP-03** | S5 Simulated Actions | 2026-01-16 07:45 (IST) | S5 actions simulate module assembly lifecycle; audit events emitted (frontend-only). | Yes |
-| **V33-S5-PP-04** | S5 Workflow Navigation Wiring | 2026-01-16 08:00 (IST) | Added S5 Next Step navigation panel guiding flow to S6 Module QA. | Yes |
-| **V33-S6-BP-01** | S6 Stage Contract Stub | 2026-01-16 08:15 (IST) | Added S6 Module QA context contract + mock data scaffold; S6 screen reads it (read-only). | No |
-| **V33-S6-FP-02** | S6 State Guard by Role | 2026-01-16 08:30 (IST) | Added S6 role/status UI guards with blocked reasons; no workflow change. | No |
-| **V33-S6-PP-03** | S6 Simulated Actions | 2026-01-16 08:45 (IST) | S6 actions simulate Module QA lifecycle with audit events (frontend-only). | Yes |
-| **V33-S6-PP-04** | S6 Workflow Navigation Wiring | 2026-01-16 09:00 (IST) | Added S6 Next Step navigation panel guiding flow to S7 Pack Assembly. | Yes |
-| **V33-S7-BP-01** | S7 Stage Contract Stub | 2026-01-16 09:15 (IST) | Added S7 Pack Assembly context contract + mock data scaffold; S7 screen reads it (read-only). | No |
-| **V33-S7-FP-02** | S7 State Guard by Role | 2026-01-16 09:30 (IST) | Added S7 role/status UI guards with blocked reasons; no workflow change. | No |
-| **V33-S7-PP-03** | S7 Simulated Actions | 2026-01-16 09:45 (IST) | S7 actions simulate Pack Assembly lifecycle; audit events emitted (frontend-only). | Yes |
-| **V33-S7-PP-04** | S7 Workflow Navigation Wiring | 2026-01-16 10:00 (IST) | Added S7 Next Step navigation panel guiding flow to S8 Aging & Soak. | Yes |
-| **V33-S8-BP-01** | S8 Stage Contract Stub | 2026-01-16 10:15 (IST) | Added S8 Aging & Soak context contract + mock data scaffold; S8 screen reads it (read-only). | No |
-| **V33-S8-FP-02** | S8 State Guard by Role | 2026-01-16 10:30 (IST) | Added S8 role/status UI guards with blocked reasons; no workflow change. | No |
-| **V33-S8-PP-03** | S8 Simulated Actions | 2026-01-16 10:45 (IST) | S8 actions simulate aging & soak lifecycle; audit events emitted (frontend-only). | Yes |
-| **V33-S8-PP-04** | S8 Workflow Navigation Wiring | 2026-01-16 11:00 (IST) | Added S8 Next Step navigation panel guiding flow to S9 Final QA. | Yes |
-| **V33-S9-BP-01** | S9 Stage Contract Stub | 2026-01-16 11:15 (IST) | Added S9 Final QA context contract + mock data scaffold; S9 screen reads it (read-only). | No |
-| **V33-S9-FP-02** | S9 State Guard by Role | 2026-01-16 11:30 (IST) | Added S9 role/status UI guards with blocked reasons; no workflow change. | No |
-| **V33-S9-PP-03** | S9 Simulated Actions | 2026-01-16 11:45 (IST) | S9 actions simulate Final QA lifecycle; audit events emitted (frontend-only). | Yes |
-| **V33-S9-PP-04** | S9 Workflow Navigation Wiring | 2026-01-16 12:00 (IST) | Added S9 Next Step navigation panel guiding flow to S10 Packing. | Yes |
-| **V33-S10-BP-01** | S10 Stage Contract Stub | 2026-01-16 12:15 (IST) | Added S10 BMS Provisioning context contract + mock data scaffold. | No |
-| **V33-S10-FP-02** | S10 State Guard by Role | 2026-01-16 12:30 (IST) | Added S10 role/status UI guards incl. firmware repo blocker; no workflow change. | No |
-| **V33-S10-PP-03** | S10 Simulated Actions | 2026-01-16 12:45 (IST) | S10 actions simulate provisioning lifecycle incl. flash/verify; audit events emitted (frontend-only). | Yes |
-| **V33-S10-PP-04** | S10 Workflow Navigation Wiring | 2026-01-16 13:00 (IST) | Added S10 Next Step navigation panel guiding flow to S11 Dispatch & Custody. | Yes |
 | **V33-S11-BP-01** | S11 Stage Contract Stub | 2026-01-16 13:15 (IST) | Added S11 dispatch & custody context contract + mock data scaffold; S11 screen reads it (read-only). | No |
 | **V33-S11-FP-02** | S11 State Guard by Role | 2026-01-16 13:30 (IST) | Added S11 role/status UI guards with blocked reasons; no workflow change. | No |
 | **V33-S11-PP-03** | S11 Simulated Actions | 2026-01-16 13:45 (IST) | S11 actions simulate dispatch & custody lifecycle; audit events emitted (frontend-only). | Yes |
 | **V33-S11-PP-04** | S11 Workflow Navigation Wiring | 2026-01-16 14:00 (IST) | Added S11 Next Step navigation panel guiding flow to S12 Warranty & Lifecycle. | Yes |
 | **V33-S12-BP-01** | S12 Stage Contract Stub | 2026-01-16 14:15 (IST) | Added S12 warranty & lifecycle context contract + mock data scaffold; S12 screen reads it (read-only). | No |
+| **V33-S12-FP-02** | S12 State Guard by Role | 2026-01-16 14:30 (IST) | Added S12 role/status UI guards for warranty & lifecycle actions; no workflow change. | No |
