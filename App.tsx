@@ -91,7 +91,7 @@ const App: React.FC = () => {
           {currentView === 'live_status' && <LiveStatus />}
           {currentView === 'system_inventory' && <SystemInventory />}
           {currentView === 'production_line' && <ProductionLine />}
-          {currentView === 'system_logs' && <SystemLogs />}
+          {currentView === 'system_logs' && <SystemLogs onNavigate={setCurrentView} />}
           {currentView === 'system_reports' && <SystemReports onNavigate={setCurrentView} />}
         </Layout>
       </UserContext.Provider>

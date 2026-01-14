@@ -1,5 +1,5 @@
 import React, { useState, useContext, useMemo, useEffect } from 'react';
-import { UserContext, UserRole } from '../types';
+import { UserContext, UserRole, NavView } from '../types';
 import { 
   ClipboardList, 
   AlertCircle, 
@@ -18,7 +18,11 @@ import {
   Save,
   Lock,
   History,
-  CheckCircle2
+  CheckCircle2,
+  Radar,
+  FileText,
+  RefreshCw,
+  Timer
 } from 'lucide-react';
 import { getMockS17Context, S17Context } from '../stages/s17/s17Contract';
 import { getS17ActionState, S17ActionId } from '../stages/s17/s17Guards';
@@ -87,7 +91,11 @@ const LogRow = React.memo<{ log: LogEntry }>(({ log }) => (
   </tr>
 ));
 
-export const SystemLogs: React.FC = () => {
+interface SystemLogsProps {
+  onNavigate?: (view: NavView) => void;
+}
+
+export const SystemLogs: React.FC<SystemLogsProps> = ({ onNavigate }) => {
   const { role } = useContext(UserContext);
   const [filterCategory, setFilterCategory] = useState<string>('All');
   const [filterSeverity, setFilterSeverity] = useState<string>('All');
@@ -218,8 +226,21 @@ export const SystemLogs: React.FC = () => {
     }, 800);
   };
 
+  const handleNav = (target: NavView) => {
+    if (onNavigate) {
+      emitAuditEvent({
+        stageId: 'S17',
+        actionId: 'NAV_END_PANEL',
+        actorRole: role,
+        message: `Navigated to ${target} from End of Lifecycle panel.`
+      });
+      onNavigate(target);
+    }
+  };
+
   const isOperator = role === UserRole.OPERATOR;
   const isAuditor = role === UserRole.MANAGEMENT || role === UserRole.COMPLIANCE;
+  const isArchived = s17Context.closureStatus === 'ARCHIVED';
 
   // Memoized Filter Logic (Optimized for large lists)
   const filteredLogs = useMemo(() => {
@@ -379,6 +400,45 @@ export const SystemLogs: React.FC = () => {
                  </div>
               ))}
            </div>
+        </div>
+      )}
+
+      {/* End of Lifecycle Panel */}
+      {onNavigate && (
+        <div className={`bg-slate-50 border border-slate-200 rounded-lg p-4 mb-2 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm animate-in slide-in-from-top-3`}>
+          <div className="flex items-start gap-3">
+            <div className={`p-2 rounded-full ${isArchived ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'}`}>
+              {isArchived ? <CheckCircle2 size={20} /> : <Timer size={20} />}
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-900 text-sm">End of Lifecycle</h3>
+              <p className="text-xs text-slate-700 mt-1 max-w-lg">
+                {isArchived
+                  ? "Lifecycle archived. System state is frozen for this context. You may review other areas."
+                  : "Not archived yet. Complete closure operations to finalize the lifecycle."}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3 w-full sm:w-auto flex-wrap justify-end">
+             <button
+               onClick={() => handleNav('control_tower')}
+               className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-md text-xs font-bold hover:bg-slate-100 transition-colors"
+             >
+               <Radar size={14} /> Control Tower
+             </button>
+             <button
+               onClick={() => handleNav('documentation')}
+               className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-md text-xs font-bold hover:bg-slate-100 transition-colors"
+             >
+               <FileText size={14} /> Documentation
+             </button>
+             <button
+               onClick={() => handleNav('system_setup')}
+               className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-md text-xs font-bold hover:bg-slate-700 transition-colors shadow-sm"
+             >
+               <RefreshCw size={14} /> Go to S0: Initiation
+             </button>
+          </div>
         </div>
       )}
 
