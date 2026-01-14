@@ -104,3 +104,4 @@ TEMPLATE:
 | **V33-OPS-FP-14** | Disabled Action Explanations | 2026-01-16 02:00 (IST) | Added consistent 'DisabledHint' visual indicators for blocked/demo actions. | No |
 | **V33-OPS-FP-15** | Control Tower Deep Link Context | 2026-01-16 02:15 (IST) | Added minimal active context handoff (runbook → stage) via sessionStorage; frontend-only. | No |
 | **V33-S0-BP-01** | S0 Stage Contract Stub | 2026-01-16 02:30 (IST) | Added S0 context contract + mock data scaffold; S0 screen reads it (read-only). | No |
+| **V33-S0-FP-02** | S0 State Guard by Role | 2026-01-16 02:45 (IST) | Added S0 role/state UI guards (enable/disable) with clear blocked reasons; no workflow change. | No |

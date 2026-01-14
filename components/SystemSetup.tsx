@@ -1,9 +1,23 @@
 import React, { useContext } from 'react';
 import { UserContext, UserRole, APP_VERSION } from '../types';
-import { ShieldAlert, Factory, Settings, FileText, Globe, Users, Database } from 'lucide-react';
+import { 
+  ShieldAlert, 
+  Factory, 
+  Settings, 
+  FileText, 
+  Globe, 
+  Users, 
+  Database,
+  Edit2,
+  Plus,
+  RefreshCw,
+  Lock
+} from 'lucide-react';
 import { StageStateBanner } from './StageStateBanner';
 import { PreconditionsPanel } from './PreconditionsPanel';
+import { DisabledHint } from './DisabledHint';
 import { getMockS0Context } from '../stages/s0/s0Contract';
+import { getS0ActionState, S0ActionId } from '../stages/s0/s0Guards';
 
 export const SystemSetup: React.FC = () => {
   const { role } = useContext(UserContext);
@@ -11,7 +25,10 @@ export const SystemSetup: React.FC = () => {
   // S0 Contract Integration
   const s0Context = getMockS0Context();
 
-  const hasAccess = role === UserRole.SYSTEM_ADMIN || role === UserRole.MANAGEMENT;
+  // Helper to resolve action state for UI
+  const getAction = (actionId: S0ActionId) => getS0ActionState(role, s0Context, actionId);
+
+  const hasAccess = role === UserRole.SYSTEM_ADMIN || role === UserRole.MANAGEMENT || role === UserRole.COMPLIANCE;
 
   if (!hasAccess) {
     return (
@@ -22,6 +39,12 @@ export const SystemSetup: React.FC = () => {
       </div>
     );
   }
+
+  // Pre-calculate action states
+  const editPlantState = getAction('EDIT_PLANT_DETAILS');
+  const manageLinesState = getAction('MANAGE_LINES');
+  const updateRegsState = getAction('UPDATE_REGULATIONS');
+  const syncSopState = getAction('SYNC_SOP');
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -54,12 +77,22 @@ export const SystemSetup: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* Plant Overview */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-industrial-border">
-          <div className="flex items-center gap-2 mb-4 text-brand-700">
-            <Factory size={20} />
-            <h2 className="font-bold">Plant / Facility Overview</h2>
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-industrial-border flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2 text-brand-700">
+              <Factory size={20} />
+              <h2 className="font-bold">Plant / Facility Overview</h2>
+            </div>
+            <button 
+              disabled={!editPlantState.enabled}
+              className="text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed text-brand-600 font-medium transition-colors"
+              title={editPlantState.reason}
+            >
+              <Edit2 size={12} /> Edit
+            </button>
           </div>
-          <div className="space-y-3 text-sm">
+          
+          <div className="space-y-3 text-sm flex-1">
              <div className="flex justify-between border-b border-slate-100 pb-2">
                 <span className="text-slate-500">Facility Name</span>
                 <span className="font-medium text-slate-800">{s0Context.plantName}</span>
@@ -77,15 +110,29 @@ export const SystemSetup: React.FC = () => {
                 <span className="font-mono text-xs text-slate-400">{s0Context.configLastUpdated}</span>
              </div>
           </div>
+          
+          {!editPlantState.enabled && (
+             <DisabledHint reason={editPlantState.reason || 'Blocked'} className="mt-3 justify-end" />
+          )}
         </div>
 
         {/* Manufacturing Lines */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-industrial-border">
-          <div className="flex items-center gap-2 mb-4 text-brand-700">
-            <Settings size={20} />
-            <h2 className="font-bold">Manufacturing Lines</h2>
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-industrial-border flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2 text-brand-700">
+              <Settings size={20} />
+              <h2 className="font-bold">Manufacturing Lines</h2>
+            </div>
+            <button 
+              disabled={!manageLinesState.enabled}
+              className="text-xs flex items-center gap-1 px-2 py-1 rounded bg-brand-50 text-brand-700 hover:bg-brand-100 disabled:opacity-50 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed font-medium transition-colors border border-transparent disabled:border-slate-200"
+              title={manageLinesState.reason}
+            >
+              <Plus size={12} /> Add Line
+            </button>
           </div>
-          <div className="space-y-3">
+
+          <div className="space-y-3 flex-1">
              <div className="flex items-center justify-between p-3 bg-slate-50 rounded border border-slate-200">
                 <span className="font-medium text-slate-700">Pack Assembly Line A</span>
                 <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-bold">ACTIVE</span>
@@ -95,29 +142,57 @@ export const SystemSetup: React.FC = () => {
                 <span className="px-2 py-0.5 bg-slate-200 text-slate-600 text-xs rounded-full font-bold">MAINTENANCE</span>
              </div>
           </div>
+
+          {!manageLinesState.enabled && (
+             <DisabledHint reason={manageLinesState.reason || 'Blocked'} className="mt-3 justify-end" />
+          )}
         </div>
 
         {/* Regulatory Context */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-industrial-border">
-           <div className="flex items-center gap-2 mb-4 text-brand-700">
-            <Globe size={20} />
-            <h2 className="font-bold">Regulatory Context</h2>
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-industrial-border flex flex-col">
+           <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2 text-brand-700">
+              <Globe size={20} />
+              <h2 className="font-bold">Regulatory Context</h2>
+            </div>
+            <button 
+              disabled={!updateRegsState.enabled}
+              className="text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed text-slate-600 font-medium transition-colors"
+              title={updateRegsState.reason}
+            >
+              <RefreshCw size={12} /> Sync
+            </button>
           </div>
-          <div className="flex flex-wrap gap-2">
+
+          <div className="flex flex-wrap gap-2 flex-1 content-start">
              <span className="px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded text-xs font-semibold">AIS-156 Amd 3</span>
              <span className="px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded text-xs font-semibold">EU Battery Reg 2023/1542</span>
              <span className="px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded text-xs font-semibold">PLI Scheme Compliant</span>
              <span className="px-3 py-1 bg-purple-50 text-purple-700 border border-purple-200 rounded text-xs font-semibold">Battery Aadhaar Enabled</span>
           </div>
+
+          {!updateRegsState.enabled && (
+             <DisabledHint reason={updateRegsState.reason || 'Blocked'} className="mt-3 justify-end" />
+          )}
         </div>
 
         {/* SOP Version & Governance */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-industrial-border">
-           <div className="flex items-center gap-2 mb-4 text-brand-700">
-            <FileText size={20} />
-            <h2 className="font-bold">SOP Governance</h2>
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-industrial-border flex flex-col">
+           <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2 text-brand-700">
+              <FileText size={20} />
+              <h2 className="font-bold">SOP Governance</h2>
+            </div>
+            <button 
+              disabled={!syncSopState.enabled}
+              className="text-xs flex items-center gap-1 px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-50 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed text-slate-700 font-medium transition-colors"
+              title={syncSopState.reason}
+            >
+              <Lock size={12} /> Publish
+            </button>
           </div>
-           <div className="space-y-3 text-sm">
+
+           <div className="space-y-3 text-sm flex-1">
              <div className="flex justify-between border-b border-slate-100 pb-2">
                 <span className="text-slate-500">Active SOP Version</span>
                 <span className="font-mono font-bold text-brand-600">{APP_VERSION}</span>
@@ -131,6 +206,10 @@ export const SystemSetup: React.FC = () => {
                 <span className="font-medium text-slate-800">2025-12-15</span>
              </div>
           </div>
+
+          {!syncSopState.enabled && (
+             <DisabledHint reason={syncSopState.reason || 'Blocked'} className="mt-3 justify-end" />
+          )}
         </div>
 
       </div>
