@@ -57,3 +57,21 @@
 | **EXT-FP-002** | Fix Patch | System HUD UX Enhancement | **STABLE** | Made HUD draggable, collapsible, and persistent. | 2026-01-13 12:00 (IST) |
 | **EXT-PP-023** | Primary Patch | Dashboard Graph Framework | **STABLE** | Added SVG Chart Framework and Management Analytics section. | 2026-01-13 12:30 (IST) |
 | **EXT-PP-024** | Primary Patch | System Intelligence & Governance | **STABLE** | Formalized Reports, Logs, Documentation discipline, and HUD defaults. | 2026-01-13 14:00 (IST) |
+| **EXT-PP-025** | Primary Patch | Dashboard Foundation Consolidation | **STABLE** | Consolidated dashboard layout (Snapshot/Trends/Dist/Risk) and froze foundation. | 2026-01-13 16:30 (IST) |
+| **EXT-PP-030** | Primary Patch | Role Dashboard – Operator | **STABLE** | Implemented Operator view reusing foundation with progressive disclosure. | 2026-01-14 09:00 (IST) |
+| **EXT-PP-031** | Primary Patch | Role Dashboard – Supervisor | **STABLE** | Implemented Supervisor view reusing foundation with oversight focus strip. | 2026-01-14 11:30 (IST) |
+| **EXT-PP-032** | Primary Patch | Role Dashboard – Plant Head | **STABLE** | Implemented Plant Head view with OEE readiness and bottleneck analysis. | 2026-01-14 14:00 (IST) |
+| **EXT-PP-033** | Primary Patch | Role Dashboard – Admin | **STABLE** | Implemented Admin view with System Governance and Integrity Panels. | 2026-01-14 16:30 (IST) |
+| **EXT-PP-034** | Primary Patch | Role Dashboard – Auditor | **STABLE** | Implemented Auditor view with evidence pointers and custody focus. | 2026-01-14 17:00 (IST) |
+| **EXT-FP-061** | Fix Patch | Visual Consistency Polish | **STABLE** | Harmonized padding (p-4/p-5), typography, and density across dashboards. | 2026-01-15 10:00 (IST) |
+| **EXT-FP-062** | Fix Patch | Responsiveness Pass | **STABLE** | Layouts adapted for Laptop/Tablet/Kiosk with mini sidebar & fluid grids. | 2026-01-15 12:00 (IST) |
+| **EXT-FP-063** | Fix Patch | Accessibility Pass | **STABLE** | Keyboard navigation, focus rings, and ARIA semantics applied. | 2026-01-15 14:00 (IST) |
+| **EXT-FP-064** | Fix Patch | Performance Pass | **STABLE** | Virtualization-ready structures, memoization, and lazy-rendering applied. | 2026-01-15 16:00 (IST) |
+| **EXT-FP-065** | Fix Patch | Demo Mode Clarity | **STABLE** | Added explicit demo captions, tooltips, and refined Auditor copy. | 2026-01-15 17:00 (IST) |
+| **EXT-HO-090** | Handover Patch | Backend Contract & Intent Finalization | **STABLE** | Finalized intent-level API contract for System & Runbook pages. | 2026-01-15 18:00 (IST) |
+| **EXT-HO-091** | Handover Patch | UI Inventory (Screen Index + Route Map) | **STABLE** | Generated authoritative Screen Index, Route Map, and RBAC Matrix. | 2026-01-15 19:00 (IST) |
+| **EXT-HO-092** | Handover Patch | UI State Machine Glossary | **STABLE** | Created authoritative glossary for status enums and transition logic. | 2026-01-15 20:00 (IST) |
+| **EXT-HO-093** | Handover Patch | Integration Hooks Map | **STABLE** | Defined UI plug points and integration constraints for backend teams. | 2026-01-15 21:00 (IST) |
+| **EXT-HO-094** | Handover Patch | Consistency & Validation Pass | **STABLE** | Aligned Glossary and Contract enums with Frontend Implementation. | 2026-01-15 22:00 (IST) |
+| **EXT-HO-095** | Handover Patch | Final Design Freeze & Handover Declaration | **STABLE** | Formally declared Design Freeze and locked all handover artifacts. | 2026-01-15 22:30 (IST) |
+| **V33-CORE-BP-00** | Baseline Patch | V3.3 Baseline Lock | **STABLE** | V3.3 baseline lock, HUD branch tag, do-not-break manifest. No behavior change. | 2026-01-15 22:45 (IST) |

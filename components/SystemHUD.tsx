@@ -151,6 +151,10 @@ export const SystemHUD: React.FC<SystemHUDProps> = ({ onNavigate }) => {
                     <span className="text-emerald-400 font-bold">{APP_VERSION}</span>
                  </div>
                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Branch</span>
+                    <span className="text-brand-400 font-bold">V3.3</span>
+                 </div>
+                 <div className="flex justify-between text-xs">
                     <span className="text-slate-500">Patch</span>
                     <span className="text-emerald-400 font-mono">{PATCH_ID}</span>
                  </div>
@@ -187,12 +191,9 @@ export const SystemHUD: React.FC<SystemHUDProps> = ({ onNavigate }) => {
                  <div className="bg-blue-950/50 text-blue-200 p-2 rounded text-[10px] text-center border border-blue-900/50 flex flex-col items-center gap-1">
                     <div className="flex items-center gap-1 font-bold text-blue-300">
                         <Lock size={10} aria-hidden="true" />
-                        DESIGN FROZEN
+                        BASELINE LOCKED
                     </div>
-                    <span className="opacity-60">Visual Baseline Established</span>
-                 </div>
-                 <div className="text-center text-[9px] text-slate-500 mt-2">
-                    Demo UI — No backend actions
+                    <span className="opacity-60">V3.3 Core Active</span>
                  </div>
               </div>
             </div>
