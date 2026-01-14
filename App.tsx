@@ -92,7 +92,7 @@ const App: React.FC = () => {
           {currentView === 'system_inventory' && <SystemInventory />}
           {currentView === 'production_line' && <ProductionLine />}
           {currentView === 'system_logs' && <SystemLogs />}
-          {currentView === 'system_reports' && <SystemReports />}
+          {currentView === 'system_reports' && <SystemReports onNavigate={setCurrentView} />}
         </Layout>
       </UserContext.Provider>
     </ErrorBoundary>

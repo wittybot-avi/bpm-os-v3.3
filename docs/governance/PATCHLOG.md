@@ -95,3 +95,4 @@
 | **V33-S15-BP-01** | S15 Stage Contract Stub | 2026-01-16 17:15 (IST) | Added S15 compliance & ESG context contract + mock data scaffold; S15 screen reads it (read-only). | No |
 | **V33-S15-FP-02** | S15 State Guard by Role | 2026-01-16 17:30 (IST) | Added S15 role/status UI guards for compliance & ESG actions; no workflow change. | No |
 | **V33-S15-PP-03** | S15 Simulated Actions | 2026-01-16 17:45 (IST) | S15 actions simulate compliance snapshot/evidence/submission; audit events emitted. | Yes |
+| **V33-S15-PP-04** | S15 Workflow Navigation Wiring | 2026-01-16 18:00 (IST) | Added S15 Next Step navigation to Audit / Governance. | Yes |
